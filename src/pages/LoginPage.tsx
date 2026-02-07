@@ -46,12 +46,11 @@ export const LoginPage = () => {
     return (
         <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-4">
             <div className="w-full max-w-sm bg-zinc-900 rounded-3xl p-8 shadow-2xl border border-zinc-800">
-                <div className="flex flex-col items-center mb-8">
-                    <div className="w-48 h-24 flex items-center justify-center mb-6">
-                        <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" />
+                <div className="flex flex-col items-center mb-10">
+                    <div className="w-64 h-32 flex items-center justify-center mb-2">
+                        <img src="/logo.png" alt="PA LOS PIES" className="w-full h-full object-contain" />
                     </div>
-                    <h1 className="text-2xl font-bold text-white mb-2">Sneaker POS</h1>
-                    <p className="text-zinc-500 text-sm">Ingrese su PIN de acceso</p>
+                    <p className="text-zinc-500 text-xs uppercase tracking-[0.2em] font-black">Sistema de Ventas</p>
                 </div>
 
                 {/* PIN Display */}
