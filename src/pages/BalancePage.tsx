@@ -199,32 +199,32 @@ export const BalancePage = () => {
         <div className="pb-20">
             {/* VISTA WEB / MÓVIL (NO-PRINT) */}
             <div className="no-print space-y-6">
-                {/* Header */}
-                <div className="flex justify-between items-center sticky top-0 bg-zinc-950/80 backdrop-blur-sm z-10 py-4">
-                    <div>
-                        <h2 className="text-3xl font-black text-white tracking-tight">Balance</h2>
-                        <p className="text-zinc-400 text-sm italic">Control de ventas y gastos diarios</p>
+                {/* Header - Mobile Optimized */}
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center sticky top-0 bg-zinc-950/80 backdrop-blur-sm z-10 py-3 gap-3">
+                    <div className="flex-shrink-0">
+                        <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">Balance</h2>
+                        <p className="text-zinc-400 text-xs sm:text-sm italic hidden sm:block">Control de ventas y gastos diarios</p>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-1.5 sm:gap-2 w-full sm:w-auto justify-end">
                         <button
                             onClick={handleExportCSV}
-                            className="bg-zinc-900 text-zinc-300 px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-zinc-800 border border-zinc-800 transition-all font-bold text-sm"
+                            className="bg-zinc-900 text-zinc-300 px-2.5 sm:px-4 py-2 rounded-xl flex items-center gap-1 sm:gap-2 hover:bg-zinc-800 border border-zinc-800 transition-all font-bold text-xs sm:text-sm"
                         >
-                            <Download size={18} />
-                            Excel
+                            <Download size={16} className="sm:w-[18px] sm:h-[18px]" />
+                            <span className="hidden sm:inline">Excel</span>
                         </button>
                         <button
                             onClick={handlePrint}
-                            className="bg-zinc-900 text-zinc-300 px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-zinc-800 border border-zinc-800 transition-all font-bold text-sm"
+                            className="bg-zinc-900 text-zinc-300 px-2.5 sm:px-4 py-2 rounded-xl flex items-center gap-1 sm:gap-2 hover:bg-zinc-800 border border-zinc-800 transition-all font-bold text-xs sm:text-sm"
                         >
-                            <History size={18} />
-                            Imprimir
+                            <History size={16} className="sm:w-[18px] sm:h-[18px]" />
+                            <span className="hidden sm:inline">Imprimir</span>
                         </button>
                         <button
                             onClick={() => setShowSettings(!showSettings)}
-                            className="p-3 bg-zinc-900 text-zinc-400 rounded-xl hover:bg-zinc-800 border border-zinc-800 transition-all"
+                            className="p-2 sm:p-3 bg-zinc-900 text-zinc-400 rounded-xl hover:bg-zinc-800 border border-zinc-800 transition-all"
                         >
-                            <Settings size={20} />
+                            <Settings size={18} className="sm:w-[20px] sm:h-[20px]" />
                         </button>
                     </div>
                 </div>

@@ -104,40 +104,34 @@ export const ProductsPage = () => {
                 )}
             </div>
 
-            <div className="grid grid-cols-1 gap-4">
+            <div className="grid grid-cols-1 gap-3">
                 {products.map(p => (
-                    <div key={p.id} className="bg-zinc-900 p-4 rounded-2xl flex items-center gap-4 border border-zinc-800 hover:border-zinc-700 transition-all group">
+                    <div key={p.id} className="bg-zinc-900 p-3 sm:p-4 rounded-2xl flex items-center gap-2 sm:gap-4 border border-zinc-800 hover:border-zinc-700 transition-all group">
                         {/* Thumbnail */}
-                        <div className="w-16 h-16 bg-zinc-800 rounded-xl shrink-0 overflow-hidden flex items-center justify-center border border-zinc-700">
+                        <div className="w-14 h-14 sm:w-16 sm:h-16 bg-zinc-800 rounded-xl shrink-0 overflow-hidden flex items-center justify-center border border-zinc-700">
                             {p.image ? (
                                 <img src={p.image} alt={p.name} className="w-full h-full object-cover" />
                             ) : (
-                                <ImageIcon size={24} className="text-zinc-600" />
+                                <ImageIcon size={20} className="text-zinc-600 sm:w-6 sm:h-6" />
                             )}
                         </div>
 
-                        {/* Info */}
+                        {/* Info - Stacked for mobile */}
                         <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                                <h3 className="font-bold text-white text-lg truncate leading-none">{p.name}</h3>
+                            <h3 className="font-bold text-white text-sm sm:text-lg truncate leading-tight">{p.name}</h3>
+                            <div className="flex flex-wrap items-center gap-1 sm:gap-2 mt-0.5">
                                 {p.category && (
-                                    <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700">
+                                    <span className="text-[9px] sm:text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700">
                                         {p.category}
                                     </span>
                                 )}
-                            </div>
-                            <div className="flex items-center gap-3">
-                                <p className="font-bold text-zinc-400 text-sm">L {p.price.toFixed(2)}</p>
-                                <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-lg border ${(p.stock ?? 0) <= 2 ? 'bg-red-500/10 border-red-500/20 text-red-500' : 'bg-zinc-800/50 border-zinc-700/50 text-zinc-400'}`}>
-                                    <span className="text-[10px] font-black uppercase tracking-tighter">Stock:</span>
-                                    <span className="text-xs font-black">{p.stock || 0}</span>
-                                </div>
+                                <p className="font-bold text-zinc-400 text-xs sm:text-sm">L {p.price.toFixed(2)}</p>
                             </div>
                         </div>
 
-                        {/* Quick Stock Controls (Admin Only) */}
+                        {/* Quick Stock Controls (Admin Only) - Compact on mobile */}
                         {isAdmin && (
-                            <div className="flex items-center bg-zinc-950 rounded-xl border border-zinc-800 p-1">
+                            <div className="flex items-center bg-zinc-950 rounded-lg sm:rounded-xl border border-zinc-800 p-0.5 sm:p-1">
                                 <button
                                     onClick={async (e) => {
                                         e.stopPropagation();
@@ -148,11 +142,11 @@ export const ProductsPage = () => {
                                             if (supabase) await supabase.from('products').upsert({ ...p, stock: newStock, id: p.id });
                                         } catch (err) { console.error(err); }
                                     }}
-                                    className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors font-bold"
+                                    className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-md sm:rounded-lg transition-colors font-bold text-sm"
                                 >
                                     -
                                 </button>
-                                <div className="w-8 text-center text-xs font-black text-white">
+                                <div className="w-6 sm:w-8 text-center text-[10px] sm:text-xs font-black text-white">
                                     {p.stock || 0}
                                 </div>
                                 <button
@@ -165,27 +159,27 @@ export const ProductsPage = () => {
                                             if (supabase) await supabase.from('products').upsert({ ...p, stock: newStock, id: p.id });
                                         } catch (err) { console.error(err); }
                                     }}
-                                    className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors font-bold"
+                                    className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-md sm:rounded-lg transition-colors font-bold text-sm"
                                 >
                                     +
                                 </button>
                             </div>
                         )}
 
-                        {/* Actions (Admin Only) */}
+                        {/* Actions (Admin Only) - Smaller on mobile */}
                         {isAdmin && (
-                            <div className="flex gap-2 ml-2">
+                            <div className="flex gap-1 sm:gap-2">
                                 <button
                                     onClick={() => openModal(p)}
-                                    className="p-3 bg-zinc-800 text-zinc-300 rounded-xl hover:bg-zinc-700 hover:text-white transition-colors border border-zinc-700"
+                                    className="p-2 sm:p-3 bg-zinc-800 text-zinc-300 rounded-lg sm:rounded-xl hover:bg-zinc-700 hover:text-white transition-colors border border-zinc-700"
                                 >
-                                    <Pencil size={18} />
+                                    <Pencil size={14} className="sm:w-[18px] sm:h-[18px]" />
                                 </button>
                                 <button
                                     onClick={() => handleDelete(p.id!)}
-                                    className="p-3 bg-red-900/10 text-red-400 rounded-xl hover:bg-red-900/30 hover:text-red-300 transition-colors border border-red-900/20"
+                                    className="p-2 sm:p-3 bg-red-900/10 text-red-400 rounded-lg sm:rounded-xl hover:bg-red-900/30 hover:text-red-300 transition-colors border border-red-900/20"
                                 >
-                                    <Trash2 size={20} />
+                                    <Trash2 size={16} className="sm:w-[20px] sm:h-[20px]" />
                                 </button>
                             </div>
                         )}
