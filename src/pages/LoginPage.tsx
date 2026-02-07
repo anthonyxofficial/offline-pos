@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/db';
 import { usePOS } from '../context/POSContext';
-import { Delete, Lock } from 'lucide-react';
+import { Delete } from 'lucide-react';
 
 export const LoginPage = () => {
     const { setCurrentUser } = usePOS();
@@ -47,8 +47,8 @@ export const LoginPage = () => {
         <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-4">
             <div className="w-full max-w-sm bg-zinc-900 rounded-3xl p-8 shadow-2xl border border-zinc-800">
                 <div className="flex flex-col items-center mb-8">
-                    <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center mb-4 shadow-lg shadow-white/10">
-                        <Lock size={32} className="text-black" />
+                    <div className="w-48 h-24 flex items-center justify-center mb-6">
+                        <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" />
                     </div>
                     <h1 className="text-2xl font-bold text-white mb-2">Sneaker POS</h1>
                     <p className="text-zinc-500 text-sm">Ingrese su PIN de acceso</p>
