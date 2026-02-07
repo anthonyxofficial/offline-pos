@@ -11,6 +11,7 @@ interface POSContextType {
     removeFromCart: (id: number, size?: string | number) => void;
     updateQuantity: (id: number, size: string | number | undefined, quantity: number) => void;
     updatePrice: (id: number, size: string | number | undefined, price: number) => void;
+    updateDiscount: (id: number, size: string | number | undefined, discount: number) => void;
     clearCart: () => void;
     selectedCartKey: string | null;
     setSelectedCartKey: (key: string | null) => void;
@@ -22,6 +23,7 @@ export const POSContext = createContext<POSContextType>({
     removeFromCart: () => { },
     updateQuantity: () => { },
     updatePrice: () => { },
+    updateDiscount: () => { },
     clearCart: () => { },
     currentUser: null,
     setCurrentUser: () => { },
@@ -90,6 +92,12 @@ export const POSProvider = ({ children }: { children: ReactNode }) => {
         ));
     };
 
+    const updateDiscount = (id: number, size: string | number | undefined, discount: number) => {
+        setCart(prev => prev.map(item =>
+            (item.id === id && item.size === size) ? { ...item, discount } : item
+        ));
+    };
+
     const clearCart = () => {
         setCart([]);
         setSelectedCartKey(null);
@@ -102,14 +110,13 @@ export const POSProvider = ({ children }: { children: ReactNode }) => {
             removeFromCart,
             updateQuantity,
             updatePrice,
+            updateDiscount,
             clearCart,
             currentUser,
             setCurrentUser,
-            selectedItemId: 0, // Deprecated, but keep for now to avoid breaking too much
-            setSelectedItemId: () => { },
             selectedCartKey,
             setSelectedCartKey
-        } as any}>
+        }}>
             {children}
         </POSContext.Provider>
     );

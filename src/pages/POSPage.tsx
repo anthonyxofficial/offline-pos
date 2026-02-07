@@ -117,6 +117,21 @@ export const POSPage = () => {
         } catch (err) {
             console.error("Cloud sync failed:", err);
         }
+
+        // Decrease stock in Local DB
+        try {
+            for (const item of cart) {
+                if (item.id) {
+                    const product = await db.products.get(item.id);
+                    if (product && product.stock !== undefined) {
+                        const newStock = Math.max(0, product.stock - item.quantity);
+                        await db.products.update(item.id, { stock: newStock });
+                    }
+                }
+            }
+        } catch (err) {
+            console.error("Error updating stock:", err);
+        }
     };
 
     return (

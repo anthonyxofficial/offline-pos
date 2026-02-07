@@ -8,10 +8,14 @@ interface CartProps {
 }
 
 export const Cart = ({ onCheckout }: CartProps) => {
-    const { cart, updateQuantity, updatePrice, clearCart, selectedCartKey, setSelectedCartKey } = usePOS();
+    const { cart, updateQuantity, updatePrice, updateDiscount, clearCart, selectedCartKey, setSelectedCartKey } = usePOS();
     const [activeMode, setActiveMode] = useState<'qty' | 'price' | 'disc'>('qty');
 
-    const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    const total = cart.reduce((sum, item) => {
+        const itemTotal = (item.price * item.quantity);
+        const discount = item.discount || 0;
+        return sum + (itemTotal - discount);
+    }, 0);
 
     return (
         <div className="flex flex-col h-full bg-zinc-900/50 backdrop-blur-md rounded-3xl shadow-2xl border border-zinc-800 overflow-hidden">
@@ -35,6 +39,10 @@ export const Cart = ({ onCheckout }: CartProps) => {
                     cart.map((item) => {
                         const key = `${item.id}-${item.size}`;
                         const isSelected = selectedCartKey === key;
+                        const itemTotal = (item.price * item.quantity);
+                        const discount = item.discount || 0;
+                        const finalPrice = itemTotal - discount;
+
                         return (
                             <div
                                 key={key}
@@ -55,11 +63,16 @@ export const Cart = ({ onCheckout }: CartProps) => {
                                                 Talla {item.size}
                                             </span>
                                         )}
+                                        {item.discount !== undefined && item.discount > 0 && (
+                                            <span className="text-red-500 font-bold px-1 rounded bg-red-500/10">
+                                                - L {item.discount}
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
                                 <div className="text-right">
                                     <p className={`text-sm font-black ${isSelected ? 'text-black' : 'text-white'}`}>
-                                        L {(item.price * item.quantity).toFixed(2)}
+                                        L {finalPrice.toFixed(2)}
                                     </p>
                                     <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-tighter">
                                         {item.quantity} x {item.price.toFixed(0)}
@@ -80,6 +93,9 @@ export const Cart = ({ onCheckout }: CartProps) => {
                     <button onClick={() => setActiveMode('price')} className={`px-4 py-1 rounded-full text-xs font-bold transition-all ${activeMode === 'price' ? 'bg-white text-black' : 'bg-zinc-800 text-zinc-500 border border-zinc-700 hover:bg-zinc-700 hover:text-zinc-300'}`}>
                         Precio
                     </button>
+                    <button onClick={() => setActiveMode('disc')} className={`px-4 py-1 rounded-full text-xs font-bold transition-all ${activeMode === 'disc' ? 'bg-white text-black' : 'bg-zinc-800 text-zinc-500 border border-zinc-700 hover:bg-zinc-700 hover:text-zinc-300'}`}>
+                        Desc.
+                    </button>
                 </div>
                 <Numpad
                     onInput={(v) => {
@@ -89,7 +105,8 @@ export const Cart = ({ onCheckout }: CartProps) => {
 
                         if (v === 'Qty') { setActiveMode('qty'); return; }
                         if (v === 'Price') { setActiveMode('price'); return; }
-                        if (['Disc', '+/-'].includes(v)) return; // Not impl
+                        if (v === 'Disc') { setActiveMode('disc'); return; }
+                        if (['+/-'].includes(v)) return;
 
                         if (v === '.') return;
 
@@ -107,14 +124,20 @@ export const Cart = ({ onCheckout }: CartProps) => {
                         } else if (activeMode === 'price') {
                             let newP = parseInt(`${Math.floor(item.price)}${num}`);
                             updatePrice(item.id!, item.size, newP);
+                        } else if (activeMode === 'disc') {
+                            let currentD = item.discount || 0;
+                            let newD = parseInt(`${currentD === 0 ? '' : currentD}${num}`);
+                            if (newD > (item.price * item.quantity)) newD = (item.price * item.quantity);
+                            updateDiscount(item.id!, item.size, newD);
                         }
                     }}
                     onDelete={() => {
                         if (selectedCartKey) {
                             const item = cart.find(i => `${i.id}-${i.size}` === selectedCartKey);
                             if (item) {
-                                if (activeMode === 'qty') updateQuantity(item.id!, item.size, 0); // Remove
+                                if (activeMode === 'qty') updateQuantity(item.id!, item.size, 0);
                                 if (activeMode === 'price') updatePrice(item.id!, item.size, 0);
+                                if (activeMode === 'disc') updateDiscount(item.id!, item.size, 0);
                             }
                         }
                     }}

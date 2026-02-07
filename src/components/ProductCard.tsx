@@ -46,11 +46,14 @@ export const ProductCard = ({ product, onAdd }: ProductCardProps) => {
                                 {product.size}
                             </span>
                         )}
-                        {/* {product.stock && (
-                            <span className="text-[10px] uppercase font-bold text-zinc-400 bg-zinc-800 border border-zinc-700 px-1.5 py-0.5 rounded md:px-2 md:py-1">
-                                {product.stock}
-                            </span> 
-                        )} */}
+                        {product.stock !== undefined && (
+                            <span className={`text-[10px] uppercase font-bold border px-1.5 py-0.5 rounded md:px-2 md:py-1 transition-all ${product.stock <= 2
+                                ? 'bg-red-500/10 text-red-500 border-red-500/50 animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.2)]'
+                                : 'bg-zinc-800 text-zinc-400 border-zinc-700'
+                                }`}>
+                                {product.stock} {product.stock === 1 ? 'Par' : 'Pares'}
+                            </span>
+                        )}
                     </div>
                 </div>
             </div>

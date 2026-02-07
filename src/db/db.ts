@@ -19,6 +19,7 @@ export interface User {
 
 export interface CartItem extends Product {
     quantity: number;
+    discount?: number; // Added for sales discounts
 }
 
 export interface Sale {

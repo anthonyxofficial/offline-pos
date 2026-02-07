@@ -10,6 +10,8 @@ export const BalancePage = () => {
     const [whatsappNumber, setWhatsappNumber] = useState('');
     const [supabaseUrl, setSupabaseUrl] = useState('');
     const [supabaseKey, setSupabaseKey] = useState('');
+    const [expenseAmount, setExpenseAmount] = useState('');
+    const [expenseDesc, setExpenseDesc] = useState('');
 
     useLiveQuery(async () => {
         const wa = await db.table('settings').get('whatsapp_number');
@@ -36,15 +38,51 @@ export const BalancePage = () => {
 
     const sales = useLiveQuery(async () => {
         if (!customDate) return [];
-
         const [y, m, d] = customDate.split('-').map(Number);
         const start = new Date(y, m - 1, d, 0, 0, 0);
         const end = new Date(y, m - 1, d, 23, 59, 59);
-
         return await db.sales.where('timestamp').between(start, end).reverse().toArray();
     }, [customDate]);
 
+    const expenses = useLiveQuery(async () => {
+        if (!customDate) return [];
+        const [y, m, d] = customDate.split('-').map(Number);
+        const start = new Date(y, m - 1, d, 0, 0, 0);
+        const end = new Date(y, m - 1, d, 23, 59, 59);
+        return await db.expenses.where('timestamp').between(start, end).reverse().toArray();
+    }, [customDate]);
+
     const totalSales = sales?.reduce((sum, sale) => sum + sale.total, 0) || 0;
+    const totalExpenses = expenses?.reduce((sum, exp) => sum + exp.amount, 0) || 0;
+    const netProfit = totalSales - totalExpenses;
+
+    // Analytics
+    const brandSales: Record<string, number> = {};
+    const sizeSales: Record<string, number> = {};
+
+    sales?.forEach(sale => {
+        sale.items.forEach(item => {
+            const brand = item.brand || 'Otras';
+            const size = item.size ? item.size.toString() : 'N/A';
+            brandSales[brand] = (brandSales[brand] || 0) + item.quantity;
+            sizeSales[size] = (sizeSales[size] || 0) + item.quantity;
+        });
+    });
+
+    const topBrands = Object.entries(brandSales).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    const topSizes = Object.entries(sizeSales).sort((a, b) => b[1] - a[1]).slice(0, 5);
+
+    const handleAddExpense = async () => {
+        if (!expenseAmount || !expenseDesc) return;
+        await db.expenses.add({
+            amount: parseFloat(expenseAmount),
+            description: expenseDesc,
+            timestamp: new Date(),
+            salespersonId: 0
+        });
+        setExpenseAmount('');
+        setExpenseDesc('');
+    };
 
     // Breakdown
     const cashTotal = sales?.filter(s => s.paymentMethod === 'cash').reduce((sum, s) => sum + s.total, 0) || 0;
@@ -55,9 +93,9 @@ export const BalancePage = () => {
         const products = await db.products.toArray();
         const salesData = await db.sales.toArray();
         const users = await db.users.toArray();
-        const expenses = await db.expenses.toArray();
+        const expensesData = await db.expenses.toArray();
 
-        const data = { products, sales: salesData, users, expenses, version: '1.0', timestamp: new Date().toISOString() };
+        const data = { products, sales: salesData, users, expenses: expensesData, version: '1.0', timestamp: new Date().toISOString() };
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -85,7 +123,6 @@ export const BalancePage = () => {
                 }
                 if (data.sales) {
                     await db.sales.clear();
-                    // Fix timestamps (they come back as strings)
                     const formattedSales = data.sales.map((s: any) => ({ ...s, timestamp: new Date(s.timestamp) }));
                     await db.sales.bulkAdd(formattedSales);
                 }
@@ -215,100 +252,241 @@ export const BalancePage = () => {
                 </div>
             )}
 
-            {/* Simple Card for Summary */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-white p-8 rounded-3xl shadow-xl shadow-white/5 flex flex-col justify-between">
-                    <div>
-                        <div className="flex justify-between items-center mb-4">
-                            <span className="text-zinc-500 text-xs font-bold uppercase tracking-widest">Resumen</span>
+            {/* Main Stats Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Net Utility Card */}
+                <div className="bg-white p-8 rounded-3xl shadow-2xl flex flex-col justify-between overflow-hidden relative">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-zinc-100 rounded-full -mr-16 -mt-16 opacity-50 transition-transform hover:scale-110"></div>
+                    <div className="relative z-10">
+                        <div className="flex justify-between items-center mb-6">
+                            <span className="text-zinc-400 text-[10px] font-black uppercase tracking-[0.2em]">Utilidad Neta</span>
                             <button
                                 onClick={setToday}
-                                className="text-[10px] font-black uppercase px-2 py-1 bg-zinc-100 text-zinc-900 rounded-lg hover:bg-zinc-900 hover:text-white transition-all"
+                                className="px-2 py-1 bg-zinc-100 text-zinc-900 rounded-lg text-[10px] font-black uppercase hover:bg-zinc-900 hover:text-white transition-all shadow-sm"
                             >
                                 Hoy
                             </button>
                         </div>
-                        <div className="flex flex-col gap-2 mb-6">
-                            <span className="text-zinc-400 text-[10px] font-bold uppercase tracking-widest">Seleccionar Fecha</span>
-                            <div className="relative group">
-                                <CalendarIcon size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 group-hover:text-black transition-colors pointer-events-none" />
-                                <input
-                                    type="date"
-                                    value={customDate}
-                                    onChange={(e) => setCustomDate(e.target.value)}
-                                    onClick={(e) => (e.target as any).showPicker?.()}
-                                    className="w-full bg-zinc-50 text-zinc-900 text-sm font-black uppercase pl-10 pr-4 py-3 rounded-xl border border-zinc-100 focus:ring-4 focus:ring-zinc-300 transition-all cursor-pointer shadow-sm active:scale-[0.98]"
-                                />
-                            </div>
+                        <h3 className={`text-4xl font-black tracking-tight ${netProfit >= 0 ? 'text-black' : 'text-red-500'}`}>
+                            L {netProfit.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        </h3>
+                        <p className="text-zinc-400 text-[10px] font-bold mt-2 uppercase">Ventas - Gastos</p>
+                    </div>
+                    <div className="mt-8 flex flex-col gap-2">
+                        <span className="text-zinc-400 text-[10px] font-bold uppercase tracking-widest">Seleccionar Fecha</span>
+                        <div className="relative group">
+                            <CalendarIcon size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 group-hover:text-black transition-colors pointer-events-none" />
+                            <input
+                                type="date"
+                                value={customDate}
+                                onChange={(e) => setCustomDate(e.target.value)}
+                                className="w-full bg-zinc-50 text-zinc-900 text-sm font-black uppercase pl-10 pr-4 py-3 rounded-xl border border-zinc-100 focus:ring-4 focus:ring-zinc-200 transition-all cursor-pointer shadow-sm"
+                            />
                         </div>
-                        <h3 className="text-4xl font-black text-black tracking-tight">L {totalSales.toLocaleString(undefined, { minimumFractionDigits: 2 })}</h3>
                     </div>
                 </div>
 
-                <div className="bg-zinc-900 border border-zinc-800 p-8 rounded-3xl col-span-1 md:col-span-2 grid grid-cols-3 gap-4">
-                    <div className="flex flex-col">
-                        <div className="flex items-center gap-1.5 mb-1">
-                            <Banknote size={14} className="text-green-500" />
-                            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Efectivo</span>
+                <div className="col-span-1 md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    {/* Gross Sales */}
+                    <div className="bg-zinc-900 border border-zinc-800 p-8 rounded-3xl flex flex-col justify-between">
+                        <div>
+                            <span className="text-zinc-500 text-[10px] font-black uppercase tracking-[0.2em] block mb-4">Ventas Totales</span>
+                            <h4 className="text-3xl font-black text-white">L {totalSales.toLocaleString()}</h4>
                         </div>
-                        <p className="text-xl font-black text-white leading-tight">L {cashTotal.toLocaleString()}</p>
+                        <div className="mt-6 flex gap-4 border-t border-zinc-800 pt-6">
+                            <div className="flex-1">
+                                <p className="text-[10px] text-zinc-500 font-bold uppercase mb-1 flex items-center gap-1">
+                                    <Banknote size={10} className="text-green-500" /> Efec
+                                </p>
+                                <p className="text-sm font-black text-zinc-300">L {cashTotal.toLocaleString()}</p>
+                            </div>
+                            <div className="flex-1">
+                                <p className="text-[10px] text-zinc-500 font-bold uppercase mb-1 flex items-center gap-1">
+                                    <CreditCard size={10} className="text-blue-400" /> Tarj
+                                </p>
+                                <p className="text-sm font-black text-zinc-300">L {cardTotal.toLocaleString()}</p>
+                            </div>
+                            <div className="flex-1">
+                                <p className="text-[10px] text-zinc-500 font-bold uppercase mb-1 flex items-center gap-1">
+                                    <QrCode size={10} className="text-purple-400" /> QR
+                                </p>
+                                <p className="text-sm font-black text-zinc-300">L {qrTotal.toLocaleString()}</p>
+                            </div>
+                        </div>
                     </div>
-                    <div className="flex flex-col">
-                        <div className="flex items-center gap-1.5 mb-1">
-                            <CreditCard size={14} className="text-blue-400" />
-                            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Tarjeta</span>
+
+                    {/* Expense Registration & Summary */}
+                    <div className="bg-zinc-900/50 border border-zinc-800/50 p-6 rounded-3xl flex flex-col gap-4">
+                        <div className="flex justify-between items-center">
+                            <span className="text-zinc-500 text-[10px] font-black uppercase tracking-[0.2em]">Gastos Operativos</span>
+                            <span className="text-red-400 font-black text-sm">- L {totalExpenses.toLocaleString()}</span>
                         </div>
-                        <p className="text-xl font-black text-white leading-tight">L {cardTotal.toLocaleString()}</p>
-                    </div>
-                    <div className="flex flex-col">
-                        <div className="flex items-center gap-1.5 mb-1">
-                            <QrCode size={14} className="text-purple-400" />
-                            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">QR / Transf</span>
+
+                        <div className="space-y-2 mt-2">
+                            <input
+                                type="number"
+                                placeholder="Monto (L)"
+                                value={expenseAmount}
+                                onChange={(e) => setExpenseAmount(e.target.value)}
+                                className="w-full bg-zinc-950 border border-zinc-800 px-4 py-2 rounded-xl text-white text-sm focus:outline-none focus:border-zinc-500"
+                            />
+                            <input
+                                type="text"
+                                placeholder="¿En qué se gastó?"
+                                value={expenseDesc}
+                                onChange={(e) => setExpenseDesc(e.target.value)}
+                                className="w-full bg-zinc-950 border border-zinc-800 px-4 py-2 rounded-xl text-white text-sm focus:outline-none focus:border-zinc-500"
+                            />
+                            <button
+                                onClick={handleAddExpense}
+                                className="w-full bg-zinc-100 text-black py-2 rounded-xl text-xs font-black uppercase hover:bg-white active:scale-95 transition-all shadow-lg"
+                            >
+                                Registrar Gasto
+                            </button>
                         </div>
-                        <p className="text-xl font-black text-white leading-tight">L {qrTotal.toLocaleString()}</p>
                     </div>
                 </div>
             </div>
 
-            {/* Sales History List */}
-            <div className="bg-zinc-900/50 rounded-3xl border border-zinc-800 p-2">
-                <div className="p-4 flex items-center gap-2 border-b border-zinc-800">
-                    <History size={18} className="text-zinc-500" />
-                    <h3 className="font-bold text-zinc-400 text-xs uppercase tracking-widest">Historial de Ventas</h3>
-                </div>
-                <div className="max-h-[500px] overflow-y-auto space-y-2 p-2 scrollbar-thin scrollbar-thumb-zinc-800">
-                    {sales?.length === 0 ? (
-                        <div className="py-12 text-center text-zinc-600">
-                            <p className="text-sm font-medium">No hay ventas registradas para este periodo</p>
-                        </div>
-                    ) : (
-                        sales?.map(sale => (
-                            <div key={sale.id} className="bg-zinc-900 border border-zinc-800/50 p-4 rounded-2xl flex justify-between items-center hover:bg-zinc-800/50 transition-colors">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-10 h-10 bg-zinc-800 rounded-xl flex items-center justify-center text-zinc-500 border border-zinc-700">
-                                        {sale.paymentMethod === 'cash' ? <Banknote size={20} className="text-green-500" /> :
-                                            sale.paymentMethod === 'card' ? <CreditCard size={20} className="text-blue-400" /> :
-                                                <QrCode size={20} className="text-purple-400" />}
-                                    </div>
-                                    <div>
-                                        <div className="flex items-center gap-2">
-                                            <p className="font-bold text-white text-sm">Sale #{sale.id}</p>
-                                            <span className="text-[10px] font-bold uppercase py-0.5 px-2 bg-zinc-800 text-zinc-500 rounded-full border border-zinc-700">
-                                                {sale.paymentMethod === 'cash' ? 'Efectivo' : sale.paymentMethod === 'card' ? 'Tarjeta' : 'QR'}
-                                            </span>
+            {/* Analytics Section */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-3xl">
+                    <div className="flex items-center gap-2 mb-4">
+                        <History size={18} className="text-zinc-500" />
+                        <h3 className="font-bold text-white uppercase text-xs tracking-widest">Lo más vendido (Marcas)</h3>
+                    </div>
+                    <div className="space-y-3">
+                        {topBrands.length === 0 ? (
+                            <p className="text-zinc-600 text-sm italic">Sin datos de ventas</p>
+                        ) : (
+                            topBrands.map(([brand, count]) => (
+                                <div key={brand} className="flex items-center justify-between">
+                                    <span className="text-zinc-300 text-sm font-medium">{brand}</span>
+                                    <div className="flex items-center gap-2">
+                                        <div className="h-1.5 w-32 bg-zinc-800 rounded-full overflow-hidden">
+                                            <div
+                                                className="h-full bg-white transition-all duration-1000"
+                                                style={{ width: `${(count / (topBrands[0][1] || 1)) * 100}%` }}
+                                            ></div>
                                         </div>
-                                        <p className="text-xs text-zinc-400 font-medium">
-                                            {sale.timestamp.toLocaleDateString()} {sale.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • <span className="text-zinc-500 italic">Vendido por {sale.salespersonName || 'N/A'}</span>
-                                        </p>
+                                        <span className="text-white text-xs font-black">{count}</span>
                                     </div>
                                 </div>
-                                <div className="text-right">
-                                    <p className="text-lg font-black text-white tracking-tight">L {sale.total.toFixed(2)}</p>
-                                    <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest">{sale.items.length} Artículos</p>
+                            ))
+                        )}
+                    </div>
+                </div>
+
+                <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-3xl">
+                    <div className="flex items-center gap-2 mb-4">
+                        <History size={18} className="text-zinc-500" />
+                        <h3 className="font-bold text-white uppercase text-xs tracking-widest">Tallas más buscadas</h3>
+                    </div>
+                    <div className="space-y-3">
+                        {topSizes.length === 0 ? (
+                            <p className="text-zinc-600 text-sm italic">Sin datos de ventas</p>
+                        ) : (
+                            topSizes.map(([size, count]) => (
+                                <div key={size} className="flex items-center justify-between">
+                                    <span className="text-zinc-300 text-sm font-medium">Talla {size}</span>
+                                    <div className="flex items-center gap-2">
+                                        <div className="h-1.5 w-32 bg-zinc-800 rounded-full overflow-hidden">
+                                            <div
+                                                className="h-full bg-blue-500 transition-all duration-1000"
+                                                style={{ width: `${(count / (topSizes[0][1] || 1)) * 100}%` }}
+                                            ></div>
+                                        </div>
+                                        <span className="text-white text-xs font-black">{count}</span>
+                                    </div>
                                 </div>
-                            </div>
-                        ))
-                    )}
+                            ))
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            {/* Data History Tabs or Two Columns */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Sales History */}
+                <div className="bg-zinc-900/50 rounded-3xl border border-zinc-800 flex flex-col h-[500px]">
+                    <div className="p-5 flex items-center justify-between border-b border-zinc-800 bg-zinc-900/80 rounded-t-3xl">
+                        <div className="flex items-center gap-2">
+                            <History size={18} className="text-zinc-500" />
+                            <h3 className="font-bold text-zinc-400 text-xs uppercase tracking-widest">Ventas</h3>
+                        </div>
+                        <span className="text-[10px] font-bold text-zinc-500 bg-zinc-800 px-2 py-1 rounded-full uppercase">
+                            {sales?.length || 0} Registros
+                        </span>
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-hide">
+                        {sales?.length === 0 ? (
+                            <div className="h-full flex items-center justify-center text-zinc-600 text-sm italic">No hay ventas registradas</div>
+                        ) : (
+                            sales?.map(sale => (
+                                <div key={sale.id} className="bg-zinc-900 border border-zinc-800/50 p-4 rounded-2xl flex justify-between items-center group hover:bg-zinc-800 transition-colors">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-10 h-10 bg-zinc-950 rounded-xl flex items-center justify-center border border-zinc-800 group-hover:border-zinc-700 transition-colors">
+                                            {sale.paymentMethod === 'cash' ? <Banknote size={20} className="text-green-500" /> :
+                                                sale.paymentMethod === 'card' ? <CreditCard size={20} className="text-blue-400" /> :
+                                                    <QrCode size={20} className="text-purple-400" />}
+                                        </div>
+                                        <div>
+                                            <div className="flex items-center gap-2">
+                                                <p className="font-bold text-white text-sm">Sale #{sale.id}</p>
+                                                <span className="text-[10px] font-black uppercase text-zinc-600 tracking-tighter">
+                                                    {sale.paymentMethod}
+                                                </span>
+                                            </div>
+                                            <p className="text-[10px] text-zinc-500 font-medium">
+                                                {sale.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • <span className="italic">Por {sale.salespersonName}</span>
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-base font-black text-white">L {sale.total.toFixed(2)}</p>
+                                        <p className="text-[8px] font-black text-zinc-600 uppercase tracking-widest">{sale.items.length} Artículos</p>
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </div>
+
+                {/* Expense History */}
+                <div className="bg-zinc-900/50 rounded-3xl border border-zinc-800 flex flex-col h-[500px]">
+                    <div className="p-5 flex items-center justify-between border-b border-zinc-800 bg-zinc-900/80 rounded-t-3xl">
+                        <div className="flex items-center gap-2">
+                            <Download size={18} className="text-red-500 rotate-180" />
+                            <h3 className="font-bold text-red-400 text-xs uppercase tracking-widest">Gastos / Egresos</h3>
+                        </div>
+                        <span className="text-[10px] font-bold text-red-500/50 bg-red-500/5 px-2 py-1 rounded-full uppercase">
+                            Fuga de Capital
+                        </span>
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-hide">
+                        {expenses?.length === 0 ? (
+                            <div className="h-full flex items-center justify-center text-zinc-600 text-sm italic">No hay gastos registrados</div>
+                        ) : (
+                            expenses?.map(exp => (
+                                <div key={exp.id} className="bg-zinc-950/50 border border-red-900/20 p-4 rounded-2xl flex justify-between items-center group">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-10 h-10 bg-red-500/5 rounded-xl flex items-center justify-center border border-red-500/10">
+                                            <Download size={20} className="text-red-500 rotate-180" />
+                                        </div>
+                                        <div>
+                                            <p className="font-bold text-zinc-200 text-sm">{exp.description}</p>
+                                            <p className="text-[10px] text-zinc-500 font-medium lowercase">
+                                                {exp.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-base font-black text-red-400">- L {exp.amount.toFixed(2)}</p>
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
                 </div>
             </div>
         </div>
