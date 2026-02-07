@@ -23,3 +23,56 @@ body {
   min-width: 320px;
   min-height: 100vh;
 }
+
+/* Print Styles */
+@media print {
+
+  .no-print,
+  nav,
+  .sidebar,
+  button,
+  .lucide {
+    display: none !important;
+  }
+
+  body,
+  html,
+  main {
+    background: white !important;
+    color: black !important;
+    height: auto !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  main {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  #root {
+    padding: 0 !important;
+  }
+
+  /* Force white background for printing */
+  .bg-zinc-950,
+  .bg-zinc-900,
+  .bg-zinc-800 {
+    background-color: transparent !important;
+    border-color: #eee !important;
+  }
+
+  .text-white,
+  .text-zinc-400,
+  .text-zinc-500 {
+    color: black !important;
+  }
+
+  .shadow-2xl,
+  .shadow-xl,
+  .shadow-lg {
+    box-shadow: none !important;
+    /* Corrected from 'shadow' to 'box-shadow' */
+  }
+}

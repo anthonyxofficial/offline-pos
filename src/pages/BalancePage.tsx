@@ -123,6 +123,36 @@ export const BalancePage = () => {
         URL.revokeObjectURL(url);
     };
 
+    const handleExportCSV = () => {
+        if (!sales || !expenses) return;
+
+        let csvContent = "\uFEFFFecha,Tipo,Descripcion/Producto,Vendedor,Metodo,Total\n";
+
+        // Add Sales
+        sales.forEach(sale => {
+            const date = sale.timestamp.toLocaleString();
+            const items = sale.items.map(i => `${i.name} (${i.size}) x${i.quantity}`).join(' | ');
+            csvContent += `"${date}","Venta","${items}","${sale.salespersonName || 'N/A'}","${sale.paymentMethod || 'cash'}","${sale.total}"\n`;
+        });
+
+        // Add Expenses
+        expenses.forEach(exp => {
+            const date = exp.timestamp.toLocaleString();
+            csvContent += `"${date}","Gasto","${exp.description}","N/A","N/A","-${exp.amount}"\n`;
+        });
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `reporte-${customDate}.csv`);
+        link.click();
+    };
+
+    const handlePrint = () => {
+        window.print();
+    };
+
     const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -169,17 +199,45 @@ export const BalancePage = () => {
         <div className="space-y-6 pb-20">
             {/* Header */}
             <div className="flex justify-between items-center sticky top-0 bg-zinc-950/80 backdrop-blur-sm z-10 py-4">
-                <div>
+                <div className="no-print">
                     <h2 className="text-3xl font-black text-white tracking-tight">Balance</h2>
-                    <p className="text-zinc-400 text-sm">Resumen de ventas y transacciones</p>
+                    <p className="text-zinc-400 text-sm italic">Control de ventas y gastos diarios</p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 no-print">
+                    <button
+                        onClick={handleExportCSV}
+                        className="bg-zinc-900 text-zinc-300 px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-zinc-800 border border-zinc-800 transition-all font-bold text-sm"
+                    >
+                        <Download size={18} />
+                        Excel
+                    </button>
+                    <button
+                        onClick={handlePrint}
+                        className="bg-zinc-900 text-zinc-300 px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-zinc-800 border border-zinc-800 transition-all font-bold text-sm"
+                    >
+                        <History size={18} />
+                        Imprimir
+                    </button>
                     <button
                         onClick={() => setShowSettings(!showSettings)}
-                        className={`p-3 rounded-xl transition-all ${showSettings ? 'bg-white text-black' : 'bg-zinc-900 text-zinc-400 border border-zinc-800'}`}
+                        className="p-3 bg-zinc-900 text-zinc-400 rounded-xl hover:bg-zinc-800 border border-zinc-800 transition-all"
                     >
                         <Settings size={20} />
                     </button>
+                </div>
+            </div>
+
+            {/* Print Header (Only visible when printing) */}
+            <div className="hidden print:block border-b-2 border-zinc-200 pb-6 mb-8">
+                <div className="flex justify-between items-center">
+                    <div>
+                        <h1 className="text-4xl font-black text-black">REPORTE DE VENTAS</h1>
+                        <p className="text-zinc-600 font-bold uppercase tracking-widest">{customDate}</p>
+                    </div>
+                    <div className="text-right text-zinc-500 text-sm">
+                        <p>PA LOS PIES - Sneakers POS</p>
+                        <p>{new Date().toLocaleString()}</p>
+                    </div>
                 </div>
             </div>
 
