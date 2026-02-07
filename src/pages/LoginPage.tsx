@@ -3,7 +3,6 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/db';
 import { usePOS } from '../context/POSContext';
 import { Delete } from 'lucide-react';
-import logo from '../assets/logo.png';
 
 export const LoginPage = () => {
     const { setCurrentUser } = usePOS();
@@ -49,7 +48,7 @@ export const LoginPage = () => {
             <div className="w-full max-w-sm bg-zinc-900 rounded-3xl p-8 shadow-2xl border border-zinc-800">
                 <div className="flex flex-col items-center mb-10">
                     <div className="w-64 h-32 flex items-center justify-center mb-2">
-                        <img src={logo} alt="PA LOS PIES" className="w-full h-full object-contain" />
+                        <img src="/logo.png" alt="PA LOS PIES" className="w-full h-full object-contain" />
                     </div>
                     <p className="text-zinc-500 text-xs uppercase tracking-[0.2em] font-black">Sistema de Ventas</p>
                 </div>
