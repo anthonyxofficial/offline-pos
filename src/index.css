@@ -33,61 +33,73 @@ body {
   button,
   .lucide,
   .sticky,
-  input[type="date"],
-  label {
+  input,
+  label,
+  header {
     display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
   }
 
   body,
   html,
   #root,
-  main {
-    background: white !important;
+  main,
+  div,
+  p,
+  span,
+  h1,
+  h2,
+  h3,
+  h4,
+  table,
+  tr,
+  td,
+  th {
+    background-color: white !important;
+    background-image: none !important;
     color: black !important;
-    height: auto !important;
-    overflow: visible !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+    border-radius: 0 !important;
+  }
+
+  body {
     padding: 0 !important;
     margin: 0 !important;
-    position: static !important;
   }
 
   main {
     width: 100% !important;
     max-width: 100% !important;
+    margin: 0 !important;
     padding: 0 !important;
   }
 
-  /* Force clean layout for printing */
-  .bg-zinc-950,
-  .bg-zinc-900,
-  .bg-zinc-800,
-  .bg-zinc-950\/80 {
-    background-color: transparent !important;
-    background-image: none !important;
-    border-color: #eee !important;
+  table {
+    width: 100%;
+    border-collapse: collapse;
   }
 
-  .text-white,
-  .text-zinc-400,
-  .text-zinc-500,
-  .text-zinc-300 {
-    color: black !important;
+  th,
+  td {
+    border: 1px solid #eee;
+    padding: 8px;
+    text-align: left;
   }
 
-  .shadow-2xl,
-  .shadow-xl,
-  .shadow-lg,
-  .shadow-sm {
-    box-shadow: none !important;
+  th {
+    background-color: #f9f9f9 !important;
+    font-weight: bold;
   }
 
-  .border-zinc-800,
-  .border-zinc-700 {
-    border-color: #eee !important;
+  .border-none-print {
+    border: none !important;
   }
+}
 
-  * {
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-  }
+.print-only {
+  display: none;
 }
