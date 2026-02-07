@@ -297,8 +297,8 @@ export const BalancePage = () => {
                                                 {sale.paymentMethod === 'cash' ? 'Efectivo' : sale.paymentMethod === 'card' ? 'Tarjeta' : 'QR'}
                                             </span>
                                         </div>
-                                        <p className="text-xs text-zinc-500 font-medium">
-                                            {sale.timestamp.toLocaleDateString()} {sale.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        <p className="text-xs text-zinc-400 font-medium">
+                                            {sale.timestamp.toLocaleDateString()} {sale.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • <span className="text-zinc-500 italic">Vendido por {sale.salespersonName || 'N/A'}</span>
                                         </p>
                                     </div>
                                 </div>
