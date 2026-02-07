@@ -4,7 +4,7 @@ import { Package, LayoutGrid, TrendingUp, LogOut } from 'lucide-react';
 import { usePOS } from '../context/POSContext';
 
 export const Layout = ({ children }: { children: React.ReactNode }) => {
-    const { currentUser, setCurrentUser } = usePOS();
+    const { currentUser, setCurrentUser, isAdmin } = usePOS();
     const location = useLocation();
 
     return (
@@ -18,9 +18,13 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
 
                 <div className="flex md:flex-col gap-1 md:gap-4 w-full md:px-2 h-full md:h-auto items-center justify-around md:justify-start">
                     <NavLink to="/" icon={<LayoutGrid size={24} />} active={location.pathname === '/'} label="Ventas" />
-                    <NavLink to="/products" icon={<Package size={24} />} active={location.pathname === '/products'} label="Inventario" />
-                    <NavLink to="/balance" icon={<TrendingUp size={24} />} active={location.pathname === '/balance'} label="Balance" />
 
+                    {isAdmin && (
+                        <>
+                            <NavLink to="/products" icon={<Package size={24} />} active={location.pathname === '/products'} label="Inventario" />
+                            <NavLink to="/balance" icon={<TrendingUp size={24} />} active={location.pathname === '/balance'} label="Balance" />
+                        </>
+                    )}
                     {/* Mobile Only: Logout/User */}
                     <button
                         onClick={() => setCurrentUser(null)}

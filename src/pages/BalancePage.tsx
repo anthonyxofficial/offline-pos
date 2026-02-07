@@ -3,9 +3,25 @@ import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/db';
 import { Download, Upload, History, CreditCard, Banknote, QrCode, Settings, Calendar as CalendarIcon } from 'lucide-react';
+import { usePOS } from '../context/POSContext';
 
 export const BalancePage = () => {
+    const { currentUser } = usePOS();
     const [customDate, setCustomDate] = useState(new Date().toISOString().split('T')[0]);
+
+    if (currentUser?.role !== 'admin') {
+        return (
+            <div className="h-full flex flex-col items-center justify-center text-center p-6 bg-zinc-950">
+                <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center text-red-500 mb-6">
+                    <Settings size={40} />
+                </div>
+                <h2 className="text-2xl font-black text-white mb-2">Acceso Denegado</h2>
+                <p className="text-zinc-400 max-w-sm">
+                    Lo sentimos, solo el administrador (Anthony) tiene permiso para ver las finanzas y el balance del negocio.
+                </p>
+            </div>
+        );
+    }
     const [showSettings, setShowSettings] = useState(false);
     const [whatsappNumber, setWhatsappNumber] = useState('');
     const [supabaseUrl, setSupabaseUrl] = useState('');

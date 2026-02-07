@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, type Product } from '../db/db';
 import { Plus, Trash2, Pencil, X, Image as ImageIcon, Save } from 'lucide-react';
+import { usePOS } from '../context/POSContext';
 
 export const ProductsPage = () => {
+    const { isAdmin } = usePOS();
     const products = useLiveQuery(() => db.products.orderBy('name').toArray(), []) || [];
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingId, setEditingId] = useState<number | null>(null);
@@ -91,13 +93,15 @@ export const ProductsPage = () => {
                     <h2 className="text-3xl font-black text-white tracking-tight">Inventario</h2>
                     <p className="text-zinc-400 text-sm">Gestiona tus productos y precios</p>
                 </div>
-                <button
-                    onClick={() => openModal()}
-                    className="bg-white text-black px-5 py-3 rounded-xl flex items-center gap-2 hover:bg-zinc-200 hover:shadow-lg shadow-white/10 transition-all active:scale-95 font-bold"
-                >
-                    <Plus size={20} strokeWidth={3} />
-                    <span className="hidden md:inline">Nuevo Producto</span>
-                </button>
+                {isAdmin && (
+                    <button
+                        onClick={() => openModal()}
+                        className="bg-white text-black px-5 py-3 rounded-xl flex items-center gap-2 hover:bg-zinc-200 hover:shadow-lg shadow-white/10 transition-all active:scale-95 font-bold"
+                    >
+                        <Plus size={20} strokeWidth={3} />
+                        <span className="hidden md:inline">Nuevo Producto</span>
+                    </button>
+                )}
             </div>
 
             <div className="grid grid-cols-1 gap-4">
@@ -131,56 +135,60 @@ export const ProductsPage = () => {
                             </div>
                         </div>
 
-                        {/* Quick Stock Controls */}
-                        <div className="flex items-center bg-zinc-950 rounded-xl border border-zinc-800 p-1">
-                            <button
-                                onClick={async (e) => {
-                                    e.stopPropagation();
-                                    const newStock = Math.max(0, (p.stock || 0) - 1);
-                                    await db.products.update(p.id!, { stock: newStock });
-                                    try {
-                                        const { supabase } = await import('../db/supabase');
-                                        if (supabase) await supabase.from('products').upsert({ ...p, stock: newStock, id: p.id });
-                                    } catch (err) { console.error(err); }
-                                }}
-                                className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors font-bold"
-                            >
-                                -
-                            </button>
-                            <div className="w-8 text-center text-xs font-black text-white">
-                                {p.stock || 0}
+                        {/* Quick Stock Controls (Admin Only) */}
+                        {isAdmin && (
+                            <div className="flex items-center bg-zinc-950 rounded-xl border border-zinc-800 p-1">
+                                <button
+                                    onClick={async (e) => {
+                                        e.stopPropagation();
+                                        const newStock = Math.max(0, (p.stock || 0) - 1);
+                                        await db.products.update(p.id!, { stock: newStock });
+                                        try {
+                                            const { supabase } = await import('../db/supabase');
+                                            if (supabase) await supabase.from('products').upsert({ ...p, stock: newStock, id: p.id });
+                                        } catch (err) { console.error(err); }
+                                    }}
+                                    className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors font-bold"
+                                >
+                                    -
+                                </button>
+                                <div className="w-8 text-center text-xs font-black text-white">
+                                    {p.stock || 0}
+                                </div>
+                                <button
+                                    onClick={async (e) => {
+                                        e.stopPropagation();
+                                        const newStock = (p.stock || 0) + 1;
+                                        await db.products.update(p.id!, { stock: newStock });
+                                        try {
+                                            const { supabase } = await import('../db/supabase');
+                                            if (supabase) await supabase.from('products').upsert({ ...p, stock: newStock, id: p.id });
+                                        } catch (err) { console.error(err); }
+                                    }}
+                                    className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors font-bold"
+                                >
+                                    +
+                                </button>
                             </div>
-                            <button
-                                onClick={async (e) => {
-                                    e.stopPropagation();
-                                    const newStock = (p.stock || 0) + 1;
-                                    await db.products.update(p.id!, { stock: newStock });
-                                    try {
-                                        const { supabase } = await import('../db/supabase');
-                                        if (supabase) await supabase.from('products').upsert({ ...p, stock: newStock, id: p.id });
-                                    } catch (err) { console.error(err); }
-                                }}
-                                className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors font-bold"
-                            >
-                                +
-                            </button>
-                        </div>
+                        )}
 
-                        {/* Actions */}
-                        <div className="flex gap-2 ml-2">
-                            <button
-                                onClick={() => openModal(p)}
-                                className="p-3 bg-zinc-800 text-zinc-300 rounded-xl hover:bg-zinc-700 hover:text-white transition-colors border border-zinc-700"
-                            >
-                                <Pencil size={18} />
-                            </button>
-                            <button
-                                onClick={() => handleDelete(p.id!)}
-                                className="p-3 bg-red-900/10 text-red-400 rounded-xl hover:bg-red-900/30 hover:text-red-300 transition-colors border border-red-900/20"
-                            >
-                                <Trash2 size={20} />
-                            </button>
-                        </div>
+                        {/* Actions (Admin Only) */}
+                        {isAdmin && (
+                            <div className="flex gap-2 ml-2">
+                                <button
+                                    onClick={() => openModal(p)}
+                                    className="p-3 bg-zinc-800 text-zinc-300 rounded-xl hover:bg-zinc-700 hover:text-white transition-colors border border-zinc-700"
+                                >
+                                    <Pencil size={18} />
+                                </button>
+                                <button
+                                    onClick={() => handleDelete(p.id!)}
+                                    className="p-3 bg-red-900/10 text-red-400 rounded-xl hover:bg-red-900/30 hover:text-red-300 transition-colors border border-red-900/20"
+                                >
+                                    <Trash2 size={20} />
+                                </button>
+                            </div>
+                        )}
                     </div>
                 ))}
             </div>

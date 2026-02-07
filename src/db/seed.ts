@@ -13,8 +13,9 @@ const sneakers = [
 
 export async function seedDatabase() {
     // Check if we need to re-seed users
+    // Check if we need to re-seed users (if roles are missing)
     const anthony = await db.users.where('name').equalsIgnoreCase('Anthony').first();
-    const needsUserReseed = !anthony;
+    const needsUserReseed = !anthony || !anthony.role;
 
     const firstProduct = await db.products.toCollection().first();
     const needsProductReseed = !firstProduct || firstProduct.size === undefined;
@@ -26,12 +27,12 @@ export async function seedDatabase() {
     }
 
     if (needsUserReseed) {
-        console.log('Updating authorized users...');
+        console.log('Updating authorized users with roles...');
         await db.users.clear();
         await db.users.bulkAdd([
-            { name: 'Anthony', pin: '2234' },
-            { name: 'John', pin: '1234' },
-            { name: 'Carlos', pin: '5504' },
+            { name: 'Anthony', pin: '2234', role: 'admin' },
+            { name: 'John', pin: '1234', role: 'sales' },
+            { name: 'Carlos', pin: '5504', role: 'sales' },
         ]);
     }
 }

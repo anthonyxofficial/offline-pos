@@ -5,6 +5,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 
 interface POSContextType {
     currentUser: User | null;
+    isAdmin: boolean;
     setCurrentUser: (user: User | null) => void;
     cart: CartItem[];
     addToCart: (product: Product, size?: string | number) => void;
@@ -26,6 +27,7 @@ export const POSContext = createContext<POSContextType>({
     updateDiscount: () => { },
     clearCart: () => { },
     currentUser: null,
+    isAdmin: false,
     setCurrentUser: () => { },
     selectedCartKey: null,
     setSelectedCartKey: () => { },
@@ -113,6 +115,7 @@ export const POSProvider = ({ children }: { children: ReactNode }) => {
             updateDiscount,
             clearCart,
             currentUser,
+            isAdmin: currentUser?.role === 'admin',
             setCurrentUser,
             selectedCartKey,
             setSelectedCartKey
