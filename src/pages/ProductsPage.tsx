@@ -122,16 +122,57 @@ export const ProductsPage = () => {
                                     </span>
                                 )}
                             </div>
-                            <p className="font-bold text-zinc-400">L {p.price.toFixed(2)}</p>
+                            <div className="flex items-center gap-3">
+                                <p className="font-bold text-zinc-400 text-sm">L {p.price.toFixed(2)}</p>
+                                <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-lg border ${(p.stock ?? 0) <= 2 ? 'bg-red-500/10 border-red-500/20 text-red-500' : 'bg-zinc-800/50 border-zinc-700/50 text-zinc-400'}`}>
+                                    <span className="text-[10px] font-black uppercase tracking-tighter">Stock:</span>
+                                    <span className="text-xs font-black">{p.stock || 0}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Quick Stock Controls */}
+                        <div className="flex items-center bg-zinc-950 rounded-xl border border-zinc-800 p-1">
+                            <button
+                                onClick={async (e) => {
+                                    e.stopPropagation();
+                                    const newStock = Math.max(0, (p.stock || 0) - 1);
+                                    await db.products.update(p.id!, { stock: newStock });
+                                    try {
+                                        const { supabase } = await import('../db/supabase');
+                                        if (supabase) await supabase.from('products').upsert({ ...p, stock: newStock, id: p.id });
+                                    } catch (err) { console.error(err); }
+                                }}
+                                className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors font-bold"
+                            >
+                                -
+                            </button>
+                            <div className="w-8 text-center text-xs font-black text-white">
+                                {p.stock || 0}
+                            </div>
+                            <button
+                                onClick={async (e) => {
+                                    e.stopPropagation();
+                                    const newStock = (p.stock || 0) + 1;
+                                    await db.products.update(p.id!, { stock: newStock });
+                                    try {
+                                        const { supabase } = await import('../db/supabase');
+                                        if (supabase) await supabase.from('products').upsert({ ...p, stock: newStock, id: p.id });
+                                    } catch (err) { console.error(err); }
+                                }}
+                                className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors font-bold"
+                            >
+                                +
+                            </button>
                         </div>
 
                         {/* Actions */}
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 ml-2">
                             <button
                                 onClick={() => openModal(p)}
                                 className="p-3 bg-zinc-800 text-zinc-300 rounded-xl hover:bg-zinc-700 hover:text-white transition-colors border border-zinc-700"
                             >
-                                <Pencil size={20} />
+                                <Pencil size={18} />
                             </button>
                             <button
                                 onClick={() => handleDelete(p.id!)}
@@ -249,6 +290,18 @@ export const ProductsPage = () => {
                                             placeholder="ej. Nike"
                                         />
                                     </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Inventario (Stock)</label>
+                                    <input
+                                        type="number"
+                                        className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-4 text-white focus:outline-none focus:ring-2 focus:ring-white/10 focus:border-zinc-500 transition-all font-bold text-lg"
+                                        value={formData.stock || 0}
+                                        onChange={e => setFormData({ ...formData, stock: parseInt(e.target.value) || 0 })}
+                                        placeholder="0"
+                                    />
+                                    <p className="text-[10px] text-zinc-500 mt-2 font-medium italic">Unidades disponibles actualmente.</p>
                                 </div>
 
                                 <div>
