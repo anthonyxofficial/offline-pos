@@ -241,6 +241,24 @@ export const BalancePage = () => {
                 </div>
             </div>
 
+            {/* Print Financial Summary */}
+            <div className="hidden print:grid grid-cols-3 gap-8 mb-10 pb-8 border-b-2 border-zinc-100">
+                <div className="text-center">
+                    <p className="text-[10px] uppercase font-black text-zinc-500 mb-1">Ventas Totales</p>
+                    <p className="text-2xl font-black text-black">L {totalSales.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                </div>
+                <div className="text-center">
+                    <p className="text-[10px] uppercase font-black text-zinc-500 mb-1">Gastos Totales</p>
+                    <p className="text-2xl font-black text-black">L {totalExpenses.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                </div>
+                <div className="text-center">
+                    <p className="text-[10px] uppercase font-black text-zinc-500 mb-1">Utilidad Neta</p>
+                    <p className={`text-2xl font-black ${netProfit >= 0 ? 'text-black' : 'text-red-600'}`}>
+                        L {netProfit.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    </p>
+                </div>
+            </div>
+
             {/* Settings / Backup Section */}
             {showSettings && (
                 <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-3xl animate-fade-in space-y-4 shadow-2xl">
@@ -327,7 +345,7 @@ export const BalancePage = () => {
             )}
 
             {/* Main Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 no-print">
                 {/* Net Utility Card */}
                 <div className="bg-white p-8 rounded-3xl shadow-2xl flex flex-col justify-between overflow-hidden relative">
                     <div className="absolute top-0 right-0 w-32 h-32 bg-zinc-100 rounded-full -mr-16 -mt-16 opacity-50 transition-transform hover:scale-110"></div>
@@ -423,7 +441,7 @@ export const BalancePage = () => {
             </div>
 
             {/* Analytics Section */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 no-print">
                 <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-3xl">
                     <div className="flex items-center gap-2 mb-4">
                         <History size={18} className="text-zinc-500" />
@@ -497,28 +515,28 @@ export const BalancePage = () => {
                             <div className="h-full flex items-center justify-center text-zinc-600 text-sm italic">No hay ventas registradas</div>
                         ) : (
                             sales?.map(sale => (
-                                <div key={sale.id} className="bg-zinc-900 border border-zinc-800/50 p-4 rounded-2xl flex justify-between items-center group hover:bg-zinc-800 transition-colors">
+                                <div key={sale.id} className="bg-zinc-900 border border-zinc-800/50 p-4 rounded-2xl flex justify-between items-center group hover:bg-zinc-800 transition-colors print:bg-white print:border-zinc-200 print:rounded-none print:p-2 print:border-b">
                                     <div className="flex items-center gap-4">
-                                        <div className="w-10 h-10 bg-zinc-950 rounded-xl flex items-center justify-center border border-zinc-800 group-hover:border-zinc-700 transition-colors">
+                                        <div className="w-10 h-10 bg-zinc-950 rounded-xl flex items-center justify-center border border-zinc-800 group-hover:border-zinc-700 transition-colors no-print">
                                             {sale.paymentMethod === 'cash' ? <Banknote size={20} className="text-green-500" /> :
                                                 sale.paymentMethod === 'card' ? <CreditCard size={20} className="text-blue-400" /> :
                                                     <QrCode size={20} className="text-purple-400" />}
                                         </div>
                                         <div>
                                             <div className="flex items-center gap-2">
-                                                <p className="font-bold text-white text-sm">Sale #{sale.id}</p>
-                                                <span className="text-[10px] font-black uppercase text-zinc-600 tracking-tighter">
+                                                <p className="font-bold text-white text-sm print:text-black">Venta No. {sale.id}</p>
+                                                <span className="text-[10px] font-black uppercase text-zinc-600 tracking-tighter print:text-zinc-500">
                                                     {sale.paymentMethod}
                                                 </span>
                                             </div>
-                                            <p className="text-[10px] text-zinc-500 font-medium">
+                                            <p className="text-[10px] text-zinc-500 font-medium print:text-zinc-700">
                                                 {sale.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • <span className="italic">Por {sale.salespersonName}</span>
                                             </p>
                                         </div>
                                     </div>
                                     <div className="text-right">
-                                        <p className="text-base font-black text-white">L {sale.total.toFixed(2)}</p>
-                                        <p className="text-[8px] font-black text-zinc-600 uppercase tracking-widest">{sale.items.length} Artículos</p>
+                                        <p className="text-base font-black text-white print:text-black">L {sale.total.toFixed(2)}</p>
+                                        <p className="text-[8px] font-black text-zinc-600 uppercase tracking-widest no-print">{sale.items.length} Artículos</p>
                                     </div>
                                 </div>
                             ))
@@ -542,20 +560,20 @@ export const BalancePage = () => {
                             <div className="h-full flex items-center justify-center text-zinc-600 text-sm italic">No hay gastos registrados</div>
                         ) : (
                             expenses?.map(exp => (
-                                <div key={exp.id} className="bg-zinc-950/50 border border-red-900/20 p-4 rounded-2xl flex justify-between items-center group">
+                                <div key={exp.id} className="bg-zinc-950/50 border border-red-900/20 p-4 rounded-2xl flex justify-between items-center group print:bg-white print:border-zinc-200 print:rounded-none print:p-2 print:border-b">
                                     <div className="flex items-center gap-4">
-                                        <div className="w-10 h-10 bg-red-500/5 rounded-xl flex items-center justify-center border border-red-500/10">
+                                        <div className="w-10 h-10 bg-red-500/5 rounded-xl flex items-center justify-center border border-red-500/10 no-print">
                                             <Download size={20} className="text-red-500 rotate-180" />
                                         </div>
                                         <div>
-                                            <p className="font-bold text-zinc-200 text-sm">{exp.description}</p>
-                                            <p className="text-[10px] text-zinc-500 font-medium lowercase">
+                                            <p className="font-bold text-zinc-200 text-sm print:text-black">{exp.description}</p>
+                                            <p className="text-[10px] text-zinc-500 font-medium lowercase print:text-zinc-700">
                                                 {exp.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                             </p>
                                         </div>
                                     </div>
                                     <div className="text-right">
-                                        <p className="text-base font-black text-red-400">- L {exp.amount.toFixed(2)}</p>
+                                        <p className="text-base font-black text-red-400 print:text-black">- L {exp.amount.toFixed(2)}</p>
                                     </div>
                                 </div>
                             ))

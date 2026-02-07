@@ -31,13 +31,13 @@ export const ReceiptModal = ({ isOpen, onClose, sale }: ReceiptModalProps) => {
 
                     {/* Header */}
                     <div className="text-center mb-6">
-                        <div className="flex justify-center mb-2 text-green-600 print:hidden">
+                        <div className="flex justify-center mb-2 text-green-600 no-print">
                             <CheckCircle size={48} />
                         </div>
-                        <h1 className="text-2xl font-black uppercase tracking-tight mb-1">POS Offline</h1>
-                        <p className="text-gray-500 text-xs">Comprobante de Pago</p>
-                        <p className="text-gray-400 text-[10px] mt-1">{sale.timestamp.toLocaleString()}</p>
-                        <p className="text-gray-400 text-[10px]">Ticket #{sale.id}</p>
+                        <h1 className="text-2xl font-black uppercase tracking-tight mb-1">PA LOS PIES</h1>
+                        <p className="text-gray-500 text-xs font-bold uppercase tracking-widest">Comprobante de Venta</p>
+                        <p className="text-gray-400 text-[10px] mt-1 font-bold">{sale.timestamp.toLocaleString()}</p>
+                        <p className="text-gray-400 text-[10px] font-bold">Ticket No. {sale.id?.toString().padStart(6, '0')}</p>
                     </div>
 
                     {/* Divider */}
@@ -83,9 +83,10 @@ export const ReceiptModal = ({ isOpen, onClose, sale }: ReceiptModalProps) => {
                     </div>
 
                     {/* Footer */}
-                    <div className="mt-8 text-center text-xs text-gray-400">
-                        <p>¡Gracias por su compra!</p>
-                        <p className="mt-1">Vuelva pronto</p>
+                    <div className="mt-8 text-center text-[10px] text-gray-500 border-t border-dashed border-gray-300 pt-4">
+                        <p className="font-bold">¡Gracias por su preferencia!</p>
+                        <p className="mt-1">Vuelva pronto a PA LOS PIES</p>
+                        <p className="mt-4 text-[8px] text-gray-400 uppercase italic">Este documento no tiene validez fiscal</p>
                     </div>
 
                 </div>

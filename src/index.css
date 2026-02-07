@@ -31,12 +31,16 @@ body {
   nav,
   .sidebar,
   button,
-  .lucide {
+  .lucide,
+  .sticky,
+  input[type="date"],
+  label {
     display: none !important;
   }
 
   body,
   html,
+  #root,
   main {
     background: white !important;
     color: black !important;
@@ -44,35 +48,46 @@ body {
     overflow: visible !important;
     padding: 0 !important;
     margin: 0 !important;
+    position: static !important;
   }
 
   main {
     width: 100% !important;
     max-width: 100% !important;
-  }
-
-  #root {
     padding: 0 !important;
   }
 
-  /* Force white background for printing */
+  /* Force clean layout for printing */
   .bg-zinc-950,
   .bg-zinc-900,
-  .bg-zinc-800 {
+  .bg-zinc-800,
+  .bg-zinc-950\/80 {
     background-color: transparent !important;
+    background-image: none !important;
     border-color: #eee !important;
   }
 
   .text-white,
   .text-zinc-400,
-  .text-zinc-500 {
+  .text-zinc-500,
+  .text-zinc-300 {
     color: black !important;
   }
 
   .shadow-2xl,
   .shadow-xl,
-  .shadow-lg {
+  .shadow-lg,
+  .shadow-sm {
     box-shadow: none !important;
-    /* Corrected from 'shadow' to 'box-shadow' */
+  }
+
+  .border-zinc-800,
+  .border-zinc-700 {
+    border-color: #eee !important;
+  }
+
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 }
