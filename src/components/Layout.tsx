@@ -2,6 +2,7 @@ import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Package, LayoutGrid, TrendingUp, LogOut } from 'lucide-react';
 import { usePOS } from '../context/POSContext';
+import logo from '../assets/logo.png';
 
 export const Layout = ({ children }: { children: React.ReactNode }) => {
     const { currentUser, setCurrentUser } = usePOS();
@@ -13,7 +14,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
             <nav className="fixed bottom-0 left-0 right-0 h-16 md:relative md:h-full md:w-24 bg-zinc-900 border-t md:border-t-0 md:border-r border-zinc-800 flex md:flex-col items-center justify-around md:justify-start md:py-6 z-50">
                 {/* Logo - Hidden on Mobile Bottom Bar */}
                 <div className="hidden md:flex w-16 h-16 items-center justify-center mb-8 shrink-0">
-                    <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" />
+                    <img src={logo} alt="Logo" className="w-full h-full object-contain" />
                 </div>
 
                 <div className="flex md:flex-col gap-1 md:gap-4 w-full md:px-2 h-full md:h-auto items-center justify-around md:justify-start">
