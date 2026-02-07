@@ -98,11 +98,9 @@ export const LoginPage = () => {
                     </button>
                 </div>
 
-                <div className="mt-8 text-center">
-                    <p className="text-xs text-zinc-600">
-                        PIN Anthony: <span className="text-zinc-400 font-mono">2234</span> | John: <span className="text-zinc-400 font-mono">1234</span>
-                    </p>
-                </div>
+                <p className="text-xs text-zinc-600">
+                    PIN Anthony: <span className="text-zinc-400 font-mono">2234</span> | Carlos: <span className="text-zinc-400 font-mono">5504</span>
+                </p>
             </div>
         </div>
     );

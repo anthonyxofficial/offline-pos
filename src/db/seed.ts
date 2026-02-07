@@ -31,6 +31,7 @@ export async function seedDatabase() {
         await db.users.bulkAdd([
             { name: 'Anthony', pin: '2234' },
             { name: 'John', pin: '1234' },
+            { name: 'Carlos', pin: '5504' },
         ]);
     }
 }
