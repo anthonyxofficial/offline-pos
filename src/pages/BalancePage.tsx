@@ -72,21 +72,57 @@ export const BalancePage = () => {
     const totalExpenses = expenses?.reduce((sum, exp) => sum + exp.amount, 0) || 0;
     const netProfit = totalSales - totalExpenses;
 
-    // Analytics
+    // Analytics - Existing
     const brandSales: Record<string, number> = {};
     const sizeSales: Record<string, number> = {};
 
+    // NEW: Advanced Analytics
+    const productSales: Record<string, { name: string; quantity: number; revenue: number }> = {};
+    const sellerPerformance: Record<string, { name: string; sales: number; transactions: number }> = {};
+
     sales?.forEach(sale => {
+        // Seller stats
+        const sellerName = sale.salespersonName || 'Sin Vendedor';
+        if (!sellerPerformance[sellerName]) {
+            sellerPerformance[sellerName] = { name: sellerName, sales: 0, transactions: 0 };
+        }
+        sellerPerformance[sellerName].sales += sale.total;
+        sellerPerformance[sellerName].transactions += 1;
+
         sale.items.forEach(item => {
             const brand = item.brand || 'Otras';
             const size = item.size ? item.size.toString() : 'N/A';
             brandSales[brand] = (brandSales[brand] || 0) + item.quantity;
             sizeSales[size] = (sizeSales[size] || 0) + item.quantity;
+
+            // Product stats
+            const productKey = item.name;
+            if (!productSales[productKey]) {
+                productSales[productKey] = { name: item.name, quantity: 0, revenue: 0 };
+            }
+            productSales[productKey].quantity += item.quantity;
+            productSales[productKey].revenue += item.price * item.quantity;
         });
     });
 
     const topBrands = Object.entries(brandSales).sort((a, b) => b[1] - a[1]).slice(0, 5);
     const topSizes = Object.entries(sizeSales).sort((a, b) => b[1] - a[1]).slice(0, 5);
+
+    // NEW: Top products by quantity and revenue
+    const topProductsByQty = Object.values(productSales).sort((a, b) => b.quantity - a.quantity).slice(0, 5);
+    const topProductsByRevenue = Object.values(productSales).sort((a, b) => b.revenue - a.revenue).slice(0, 5);
+
+    // NEW: Seller ranking
+    const sellerRanking = Object.values(sellerPerformance).sort((a, b) => b.sales - a.sales);
+    const avgTicket = sales && sales.length > 0 ? totalSales / sales.length : 0;
+
+    // NEW: Low stock products query
+    const allProducts = useLiveQuery(() => db.products.toArray(), []);
+    const lowStockProducts = allProducts?.filter(p => (p.stock ?? 0) <= 2) || [];
+
+    // NEW: Dormant products (not sold on selected date)
+    const soldProductNames = new Set(Object.keys(productSales));
+    const dormantProducts = allProducts?.filter(p => !soldProductNames.has(p.name)) || [];
 
     const handleAddExpense = async () => {
         if (!expenseAmount || !expenseDesc) return;
@@ -464,6 +500,123 @@ export const BalancePage = () => {
                         </div>
                     </div>
                 </div>
+
+                {/* NEW: Advanced Analytics Section */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {/* Top Products by Revenue */}
+                    <div className="bg-gradient-to-br from-emerald-900/20 to-zinc-900 border border-emerald-800/30 p-6 rounded-3xl">
+                        <div className="flex items-center gap-2 mb-4">
+                            <span className="text-lg">🏆</span>
+                            <h3 className="font-bold text-white uppercase text-xs tracking-widest">Top por Ingresos</h3>
+                        </div>
+                        <div className="space-y-3">
+                            {topProductsByRevenue.length === 0 ? (
+                                <p className="text-zinc-600 text-sm italic">Sin ventas hoy</p>
+                            ) : (
+                                topProductsByRevenue.map((product, idx) => (
+                                    <div key={product.name} className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <span className={`text-xs font-black ${idx === 0 ? 'text-yellow-400' : idx === 1 ? 'text-zinc-400' : idx === 2 ? 'text-amber-600' : 'text-zinc-600'}`}>
+                                                #{idx + 1}
+                                            </span>
+                                            <span className="text-zinc-300 text-sm font-medium truncate max-w-[120px]">{product.name}</span>
+                                        </div>
+                                        <span className="text-emerald-400 text-xs font-black">L {product.revenue.toLocaleString()}</span>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Seller Performance */}
+                    <div className="bg-gradient-to-br from-blue-900/20 to-zinc-900 border border-blue-800/30 p-6 rounded-3xl">
+                        <div className="flex items-center gap-2 mb-4">
+                            <span className="text-lg">👤</span>
+                            <h3 className="font-bold text-white uppercase text-xs tracking-widest">Rendimiento Vendedor</h3>
+                        </div>
+                        <div className="space-y-3">
+                            {sellerRanking.length === 0 ? (
+                                <p className="text-zinc-600 text-sm italic">Sin ventas hoy</p>
+                            ) : (
+                                sellerRanking.map((seller) => (
+                                    <div key={seller.name} className="p-3 bg-zinc-950/50 rounded-xl border border-zinc-800">
+                                        <div className="flex justify-between items-center mb-2">
+                                            <span className="text-white text-sm font-bold">{seller.name}</span>
+                                            <span className="text-blue-400 text-xs font-black">L {seller.sales.toLocaleString()}</span>
+                                        </div>
+                                        <div className="flex gap-4 text-[10px] text-zinc-500 uppercase">
+                                            <span>{seller.transactions} ventas</span>
+                                            <span>Ticket: L {seller.transactions > 0 ? (seller.sales / seller.transactions).toFixed(0) : 0}</span>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                        {sales && sales.length > 0 && (
+                            <div className="mt-4 pt-4 border-t border-zinc-800">
+                                <div className="flex justify-between text-xs">
+                                    <span className="text-zinc-500 uppercase">Ticket Promedio</span>
+                                    <span className="text-white font-black">L {avgTicket.toFixed(0)}</span>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Low Stock Alert */}
+                    <div className={`bg-gradient-to-br ${lowStockProducts.length > 0 ? 'from-red-900/30 to-zinc-900 border-red-800/50' : 'from-zinc-900 to-zinc-900 border-zinc-800'} border p-6 rounded-3xl`}>
+                        <div className="flex items-center gap-2 mb-4">
+                            <span className="text-lg">{lowStockProducts.length > 0 ? '⚠️' : '✅'}</span>
+                            <h3 className="font-bold text-white uppercase text-xs tracking-widest">Stock Crítico</h3>
+                            {lowStockProducts.length > 0 && (
+                                <span className="ml-auto bg-red-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full animate-pulse">
+                                    {lowStockProducts.length}
+                                </span>
+                            )}
+                        </div>
+                        <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                            {lowStockProducts.length === 0 ? (
+                                <p className="text-emerald-500 text-sm font-medium">¡Todo el inventario está bien!</p>
+                            ) : (
+                                lowStockProducts.slice(0, 5).map((product) => (
+                                    <div key={product.id} className="flex items-center justify-between p-2 bg-red-950/30 rounded-lg border border-red-900/30">
+                                        <span className="text-zinc-300 text-sm font-medium truncate max-w-[150px]">{product.name}</span>
+                                        <span className={`text-xs font-black ${product.stock === 0 ? 'text-red-400' : 'text-orange-400'}`}>
+                                            {product.stock || 0} pares
+                                        </span>
+                                    </div>
+                                ))
+                            )}
+                            {lowStockProducts.length > 5 && (
+                                <p className="text-zinc-500 text-xs text-center pt-2">+ {lowStockProducts.length - 5} productos más</p>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Dormant Products */}
+                {dormantProducts.length > 0 && (
+                    <div className="bg-zinc-900/50 border border-zinc-800 p-6 rounded-3xl">
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-2">
+                                <span className="text-lg">😴</span>
+                                <h3 className="font-bold text-white uppercase text-xs tracking-widest">Productos Sin Ventas Hoy</h3>
+                            </div>
+                            <span className="text-zinc-500 text-xs">{dormantProducts.length} productos</span>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                            {dormantProducts.slice(0, 10).map((product) => (
+                                <span key={product.id} className="text-xs bg-zinc-800 text-zinc-400 px-3 py-1.5 rounded-lg border border-zinc-700">
+                                    {product.name}
+                                </span>
+                            ))}
+                            {dormantProducts.length > 10 && (
+                                <span className="text-xs bg-zinc-800 text-zinc-500 px-3 py-1.5 rounded-lg">
+                                    +{dormantProducts.length - 10} más
+                                </span>
+                            )}
+                        </div>
+                    </div>
+                )}
 
                 {/* Data History Columns */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
