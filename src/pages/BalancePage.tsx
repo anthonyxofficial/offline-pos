@@ -109,7 +109,6 @@ export const BalancePage = () => {
     const topSizes = Object.entries(sizeSales).sort((a, b) => b[1] - a[1]).slice(0, 5);
 
     // NEW: Top products by quantity and revenue
-    const topProductsByQty = Object.values(productSales).sort((a, b) => b.quantity - a.quantity).slice(0, 5);
     const topProductsByRevenue = Object.values(productSales).sort((a, b) => b.revenue - a.revenue).slice(0, 5);
 
     // NEW: Seller ranking
