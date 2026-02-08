@@ -41,11 +41,6 @@ export const ProductCard = ({ product, onAdd }: ProductCardProps) => {
                 <div className="flex justify-between items-end flex-wrap gap-1">
                     <span className="text-base md:text-xl font-black text-white tracking-tight">L {product.price.toFixed(2)}</span>
                     <div className="flex gap-1">
-                        {product.size && (
-                            <span className="text-[10px] uppercase font-bold text-black bg-white border border-zinc-200 px-1.5 py-0.5 rounded md:px-2 md:py-1">
-                                {product.size}
-                            </span>
-                        )}
                         {product.stock !== undefined && (
                             <span className={`text-[10px] uppercase font-bold border px-1.5 py-0.5 rounded md:px-2 md:py-1 transition-all ${product.stock <= 2
                                 ? 'bg-red-500/10 text-red-500 border-red-500/50 animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.2)]'
