@@ -307,14 +307,81 @@ export const ProductsPage = () => {
                                 </div>
 
                                 <div>
-                                    <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">URL de Imagen</label>
-                                    <input
-                                        className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-4 text-zinc-300 focus:outline-none focus:ring-2 focus:ring-white/10 focus:border-zinc-500 transition-all text-sm font-mono"
-                                        value={formData.image || ''}
-                                        onChange={e => setFormData({ ...formData, image: e.target.value })}
-                                        placeholder="https://..."
-                                    />
-                                    <p className="text-[10px] text-zinc-500 mt-2 font-medium">Pega una URL de imagen (jpg, png, webp)</p>
+                                    <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Imagen del Producto</label>
+
+                                    {/* Upload Button */}
+                                    <div className="flex flex-col gap-3">
+                                        <button
+                                            type="button"
+                                            onClick={() => document.getElementById('imageInput')?.click()}
+                                            className="w-full bg-zinc-800 text-zinc-300 py-3 rounded-xl border border-dashed border-zinc-600 hover:bg-zinc-700 hover:text-white hover:border-zinc-500 transition-all flex items-center justify-center gap-2 text-sm font-medium"
+                                        >
+                                            <ImageIcon size={18} />
+                                            {formData.image ? 'Cambiar Imagen' : 'Subir Imagen'}
+                                        </button>
+                                        <input
+                                            id="imageInput"
+                                            type="file"
+                                            accept="image/*"
+                                            className="hidden"
+                                            onChange={(e) => {
+                                                const file = e.target.files?.[0];
+                                                if (file) {
+                                                    const reader = new FileReader();
+                                                    reader.onload = (event) => {
+                                                        const img = new Image();
+                                                        img.onload = () => {
+                                                            const canvas = document.createElement('canvas');
+                                                            let width = img.width;
+                                                            let height = img.height;
+
+                                                            // Resize if too big (max 800px)
+                                                            const MAX_SIZE = 800;
+                                                            if (width > height) {
+                                                                if (width > MAX_SIZE) {
+                                                                    height *= MAX_SIZE / width;
+                                                                    width = MAX_SIZE;
+                                                                }
+                                                            } else {
+                                                                if (height > MAX_SIZE) {
+                                                                    width *= MAX_SIZE / height;
+                                                                    height = MAX_SIZE;
+                                                                }
+                                                            }
+
+                                                            canvas.width = width;
+                                                            canvas.height = height;
+                                                            const ctx = canvas.getContext('2d');
+                                                            ctx?.drawImage(img, 0, 0, width, height);
+
+                                                            // Compress to JPEG 70%
+                                                            const base64 = canvas.toDataURL('image/jpeg', 0.7);
+                                                            setFormData({ ...formData, image: base64 });
+                                                        };
+                                                        img.src = event.target?.result as string;
+                                                    };
+                                                    reader.readAsDataURL(file);
+                                                }
+                                            }}
+                                        />
+
+                                        {/* URL Fallback */}
+                                        <div className="relative">
+                                            <div className="absolute inset-0 flex items-center" aria-hidden="true">
+                                                <div className="w-full border-t border-zinc-800"></div>
+                                            </div>
+                                            <div className="relative flex justify-center">
+                                                <span className="bg-zinc-900 px-2 text-xs text-zinc-500">O usa una URL</span>
+                                            </div>
+                                        </div>
+
+                                        <input
+                                            className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-zinc-300 focus:outline-none focus:ring-2 focus:ring-white/10 focus:border-zinc-500 transition-all text-sm"
+                                            value={formData.image || ''}
+                                            onChange={e => setFormData({ ...formData, image: e.target.value })}
+                                            placeholder="https://ejemplo.com/imagen.jpg"
+                                        />
+                                    </div>
                                 </div>
                             </div>
 
