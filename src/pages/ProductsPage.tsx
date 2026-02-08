@@ -110,7 +110,7 @@ export const ProductsPage = () => {
                         {/* Thumbnail */}
                         <div className="w-14 h-14 sm:w-16 sm:h-16 bg-zinc-800 rounded-xl shrink-0 overflow-hidden flex items-center justify-center border border-zinc-700">
                             {p.image ? (
-                                <img src={p.image} alt={p.name} className="w-full h-full object-cover" />
+                                <img src={p.image} alt={p.name} loading="lazy" decoding="async" className="w-full h-full object-cover" />
                             ) : (
                                 <ImageIcon size={20} className="text-zinc-600 sm:w-6 sm:h-6" />
                             )}
