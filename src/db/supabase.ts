@@ -102,12 +102,11 @@ export const initSupabase = async () => {
                 console.log('[SYNC] Sales synced:', sales.length);
             }
 
-            // Sync Products - Clear and replace for consistency
+            // Sync Products - use bulkPut (merge) instead of clear+add to prevent wiping unsynced local changes
             const { data: products } = await supabase!.from('products').select('*');
             if (products && products.length > 0) {
-                await db.products.clear();
-                await db.products.bulkAdd(products);
-                console.log('[SYNC] Products synced:', products.length);
+                await db.products.bulkPut(products);
+                console.log('[SYNC] Products merged:', products.length);
             }
         };
         await syncInitial();
@@ -117,8 +116,7 @@ export const initSupabase = async () => {
             try {
                 const { data: products } = await supabase!.from('products').select('*');
                 if (products && products.length > 0) {
-                    await db.products.clear();
-                    await db.products.bulkAdd(products);
+                    await db.products.bulkPut(products);
                 }
             } catch (err) {
                 console.error('[SYNC] Periodic sync error:', err);
