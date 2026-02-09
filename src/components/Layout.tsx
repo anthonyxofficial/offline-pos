@@ -7,16 +7,35 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
     const { currentUser, setCurrentUser, isAdmin } = usePOS();
     const location = useLocation();
 
+    const [time, setTime] = React.useState(new Date());
+
+    React.useEffect(() => {
+        const timer = setInterval(() => setTime(new Date()), 1000);
+        return () => clearInterval(timer);
+    }, []);
+
     return (
         <div className="flex flex-col md:flex-row h-[100dvh] bg-zinc-950 text-zinc-100 overflow-hidden font-sans selection:bg-zinc-800 selection:text-white">
             {/* Nav: Sidebar (Desktop) / Bottom Bar (Mobile) */}
             <nav className="fixed bottom-0 left-0 right-0 h-16 md:relative md:h-full md:w-24 bg-zinc-900 border-t md:border-t-0 md:border-r border-zinc-800 flex md:flex-col items-center justify-around md:justify-start md:py-6 z-50">
                 {/* Logo - Hidden on Mobile Bottom Bar */}
-                <div className="hidden md:flex w-16 h-16 items-center justify-center mb-8 shrink-0">
-                    <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" />
+                <div className="hidden md:flex flex-col items-center justify-center mb-6 shrink-0 gap-2">
+                    <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center">
+                        <img src="/logo.png" alt="Logo" className="w-10 h-10 object-contain" />
+                    </div>
                 </div>
 
-                <div className="flex md:flex-col gap-1 md:gap-4 w-full md:px-2 h-full md:h-auto items-center justify-around md:justify-start">
+                {/* Clock - Desktop Only */}
+                <div className="hidden md:flex flex-col items-center mb-6 text-center">
+                    <span className="text-xl font-black text-white tracking-tighter leading-none">
+                        {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                    <span className="text-[10px] text-zinc-500 font-bold uppercase">
+                        {time.toLocaleDateString([], { weekday: 'short', day: 'numeric' })}
+                    </span>
+                </div>
+
+                <div className="flex flex-row md:flex-col gap-1 md:gap-4 w-full md:px-2 h-full md:h-auto items-center justify-around md:justify-start">
                     <NavLink to="/" icon={<LayoutGrid size={24} />} active={location.pathname === '/'} label="Ventas" />
 
                     {isAdmin && (
