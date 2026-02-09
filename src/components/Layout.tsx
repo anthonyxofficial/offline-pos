@@ -19,14 +19,12 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
             {/* Nav: Sidebar (Desktop) / Bottom Bar (Mobile) */}
             <nav className="fixed bottom-0 left-0 right-0 h-16 md:relative md:h-full md:w-24 bg-zinc-900 border-t md:border-t-0 md:border-r border-zinc-800 flex md:flex-col items-center justify-around md:justify-start md:py-6 z-50">
                 {/* Logo - Hidden on Mobile Bottom Bar */}
-                <div className="hidden md:flex flex-col items-center justify-center mb-6 shrink-0 gap-2">
-                    <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center">
-                        <img src="/logo.png" alt="Logo" className="w-10 h-10 object-contain" />
-                    </div>
+                <div className="hidden md:flex flex-col items-center justify-center mb-4 shrink-0">
+                    <img src="/logo.png" alt="Logo" className="w-14 h-14 object-contain" />
                 </div>
 
                 {/* Clock - Desktop Only */}
-                <div className="hidden md:flex flex-col items-center mb-6 text-center">
+                <div className="hidden md:flex flex-col items-center mb-8 text-center">
                     <span className="text-xl font-black text-white tracking-tighter leading-none">
                         {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </span>
