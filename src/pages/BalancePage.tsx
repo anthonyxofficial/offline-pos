@@ -7,7 +7,11 @@ import { usePOS } from '../context/POSContext';
 
 export const BalancePage = () => {
     const { currentUser } = usePOS();
-    const [customDate, setCustomDate] = useState(new Date().toISOString().split('T')[0]);
+    const [customDate, setCustomDate] = useState(() => {
+        const now = new Date();
+        const offset = now.getTimezoneOffset() * 60000;
+        return new Date(now.getTime() - offset).toISOString().split('T')[0];
+    });
 
     if (currentUser?.role !== 'admin') {
         return (
