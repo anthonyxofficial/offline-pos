@@ -8,9 +8,11 @@ import { usePOS } from '../context/POSContext';
 export const BalancePage = () => {
     const { currentUser } = usePOS();
     const [customDate, setCustomDate] = useState(() => {
-        const now = new Date();
-        const offset = now.getTimezoneOffset() * 60000;
-        return new Date(now.getTime() - offset).toISOString().split('T')[0];
+        const d = new Date();
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
     });
 
     if (currentUser?.role !== 'admin') {

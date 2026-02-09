@@ -109,7 +109,11 @@ export const POSPage = () => {
                     salesperson_name: currentUser?.name,
                     payment_method: method,
                     items: cart,
-                    timestamp: sale.timestamp // Explicitly send local timestamp
+                    timestamp: (() => {
+                        const d = new Date();
+                        const offset = d.getTimezoneOffset() * 60000;
+                        return new Date(d.getTime() - offset).toISOString();
+                    })()
                 }]);
 
                 if (error) console.error("Error syncing to cloud:", error);
