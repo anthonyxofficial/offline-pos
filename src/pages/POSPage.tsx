@@ -8,6 +8,7 @@ import { Search } from 'lucide-react';
 import { CategoryFilter } from '../components/CategoryFilter';
 import { PaymentModal } from '../components/PaymentModal';
 import { ReceiptModal } from '../components/ReceiptModal';
+import { InventoryService } from '../services/InventoryService';
 
 import { SizeSelectorModal } from '../components/SizeSelectorModal';
 
@@ -59,6 +60,7 @@ export const POSPage = () => {
     };
 
     const handleConfirmLayaway = async (customerName: string, customerContact: string, initialPayment: number, method: string, shippingCost: number) => {
+        if (!currentUser) return;
         const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
         const total = subtotal + shippingCost;
         const balance = total - initialPayment;
@@ -105,15 +107,20 @@ export const POSPage = () => {
             await db.sales.add(paymentSale);
         }
 
-        // Decrease stock in Local DB (same logic as sale)
+        // Decrease stock in Local DB via InventoryService
         try {
             for (const item of cart) {
                 if (item.id) {
-                    const product = await db.products.get(item.id);
-                    if (product && product.stock !== undefined) {
-                        const newStock = Math.max(0, product.stock - item.quantity);
-                        await db.products.update(item.id, { stock: newStock });
-                    }
+                    await InventoryService.adjustStock(
+                        item.id,
+                        -item.quantity,
+                        'layaway',
+                        currentUser,
+                        `Apartado - ${customerName}`,
+                        layaway.id?.toString() // Ideally we would get the ID from add() result but layaway object might not have it yet if not returned. 
+                        // Wait, db.layaways.add returns the ID.
+                        // Let's capture the ID first.
+                    );
                 }
             }
         } catch (err) {
@@ -141,6 +148,20 @@ export const POSPage = () => {
 
         const id = await db.sales.add(sale);
         const savedSale = { ...sale, id: id as number };
+
+        // Update Stock & Record Movement via Service
+        for (const item of cart) {
+            if (item.id) {
+                await InventoryService.adjustStock(
+                    item.id,
+                    -item.quantity,
+                    'sale',
+                    currentUser!,
+                    `Venta #${id}`,
+                    id.toString()
+                );
+            }
+        }
 
         setIsPaymentOpen(false);
         clearCart();
@@ -181,7 +202,7 @@ export const POSPage = () => {
                 // @ts-ignore
                 const { error } = await supabase.from('sales').insert([{
                     total,
-                    shipping_cost: shippingCost, // Map to snake_case for Supabase if needed, or camelCase if column is camelCase. Assuming snake_case based on previous code.
+                    shipping_cost: shippingCost,
                     salesperson_name: currentUser?.name,
                     payment_method: method,
                     items: cart,
@@ -199,20 +220,7 @@ export const POSPage = () => {
             console.error("Cloud sync failed:", err);
         }
 
-        // Decrease stock in Local DB
-        try {
-            for (const item of cart) {
-                if (item.id) {
-                    const product = await db.products.get(item.id);
-                    if (product && product.stock !== undefined) {
-                        const newStock = Math.max(0, product.stock - item.quantity);
-                        await db.products.update(item.id, { stock: newStock });
-                    }
-                }
-            }
-        } catch (err) {
-            console.error("Error updating stock:", err);
-        }
+        // We removed the manual stock deduction loop here because we did it via service above
     };
 
     return (

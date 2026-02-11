@@ -3,6 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db, type Layaway, type Sale, type Payment } from '../db/db';
 import { usePOS } from '../context/POSContext';
 import { Search, Plus, DollarSign, Package, ChevronDown, ChevronUp } from 'lucide-react';
+import { InventoryService } from '../services/InventoryService';
 
 export const LayawaysPage = () => {
     const { currentUser } = usePOS();
@@ -77,15 +78,20 @@ export const LayawaysPage = () => {
     };
 
     const handleCancelLayaway = async (layaway: Layaway) => {
+        if (!currentUser) return alert('Debes iniciar sesión para cancelar apartados');
         if (!confirm('¿Seguro que deseas cancelar este apartado? Esto retornará los productos al inventario.')) return;
 
-        // Return stock
+        // Return stock via Service
         for (const item of layaway.items) {
             if (item.id) {
-                const product = await db.products.get(item.id);
-                if (product && product.stock !== undefined) {
-                    await db.products.update(item.id, { stock: product.stock + item.quantity });
-                }
+                await InventoryService.adjustStock(
+                    item.id,
+                    item.quantity, // Positive quantity adds to stock
+                    'return',
+                    currentUser,
+                    `Cancelación Apartado - ${layaway.customerName}`,
+                    layaway.id?.toString()
+                );
             }
         }
 

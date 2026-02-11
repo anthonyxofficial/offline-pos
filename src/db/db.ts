@@ -62,21 +62,38 @@ export interface Layaway {
     updatedAt: Date;
 }
 
+export interface StockMovement {
+    id?: number;
+    productId: number;
+    productName: string;
+    type: 'sale' | 'restock' | 'adjustment' | 'return' | 'layaway' | 'initial';
+    quantity: number; // +1, -5, etc.
+    previousStock: number;
+    newStock: number;
+    referenceId?: string; // ID de Venta o Nota
+    timestamp: Date;
+    userId: number;
+    userName: string;
+    notes?: string;
+}
+
 export class POSDatabase extends Dexie {
     products!: Table<Product>;
     users!: Table<User>;
     sales!: Table<Sale>;
     expenses!: Table<Expense>;
     layaways!: Table<Layaway>;
+    stock_movements!: Table<StockMovement>;
 
     constructor() {
         super('POSDatabase');
-        this.version(3).stores({
+        this.version(4).stores({
             products: '++id, name',
             users: '++id, name',
             sales: '++id, timestamp, salespersonId',
             expenses: '++id, timestamp, salespersonId',
             layaways: '++id, customerName, status, createdAt',
+            stock_movements: '++id, productId, type, timestamp',
             settings: 'key'
         });
     }

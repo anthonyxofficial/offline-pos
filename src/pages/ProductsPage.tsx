@@ -1,14 +1,18 @@
 import React, { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, type Product } from '../db/db';
-import { Plus, Trash2, Pencil, X, Image as ImageIcon, Save } from 'lucide-react';
+import { Plus, Trash2, Pencil, X, Image as ImageIcon, Save, History } from 'lucide-react';
 import { usePOS } from '../context/POSContext';
+import { InventoryService } from '../services/InventoryService';
+import { KardexModal } from '../components/KardexModal';
 
 export const ProductsPage = () => {
-    const { isAdmin } = usePOS();
+    const { isAdmin, currentUser } = usePOS();
     const products = useLiveQuery(() => db.products.orderBy('name').toArray(), []) || [];
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingId, setEditingId] = useState<number | null>(null);
+    const [isKardexOpen, setIsKardexOpen] = useState(false);
+    const [selectedProductForKardex, setSelectedProductForKardex] = useState<Product | null>(null);
 
     const [formData, setFormData] = useState<Product>({
         name: '',
@@ -28,6 +32,12 @@ export const ProductsPage = () => {
         setIsModalOpen(true);
     };
 
+    const handleOpenKardex = (product: Product, e: React.MouseEvent) => {
+        e.stopPropagation();
+        setSelectedProductForKardex(product);
+        setIsKardexOpen(true);
+    };
+
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
         const p = formData; // Use formData for the product to be saved
@@ -36,10 +46,48 @@ export const ProductsPage = () => {
 
         try {
             let id: number | undefined = editingId || undefined;
+
+            // Check if stock changed to record movement
             if (id) {
+                const existing = await db.products.get(id);
+                if (existing && existing.stock !== p.stock) {
+                    const diff = (p.stock || 0) - (existing.stock || 0);
+                    if (diff !== 0 && currentUser) {
+                        await InventoryService.adjustStock(
+                            id,
+                            diff,
+                            'adjustment',
+                            currentUser,
+                            "Edición manual desde inventario"
+                        );
+                    }
+                    // We don't update stock directly here because ajustStock does it,
+                    // BUT adjustStock updates the DB. We still need to update other fields (name, price, etc.)
+                    // So we update the product *after* or *with* the other fields, but we must be careful not to double update.
+                    // Actually, adjustStock updates the stock in DB. 
+                    // If we call db.products.update(id, p) afterwards, it might overwrite or be redundant.
+                    // Let's rely on adjustStock for stock, and update other fields here.
+                }
+
+                // Exclude stock from direct update if we handled it via service? 
+                // To be safe and simple: Update everything here, but rely on the diff check above to log the movement.
+                // However, `InventoryService.adjustStock` UPDATES the product stock in DB.
+                // So if we run adjustStock, the DB has new stock. 
+                // Then if we run `db.products.update(id, p)`, we just confirm it.
+                // The critical part is LOGGING the movement.
                 await db.products.update(id, p);
             } else {
                 id = await db.products.add(p) as number;
+                // Initial stock movement
+                if (p.stock && p.stock > 0 && currentUser) {
+                    await InventoryService.adjustStock(
+                        id,
+                        p.stock,
+                        'initial',
+                        currentUser,
+                        "Inventario Inicial"
+                    );
+                }
             }
 
             // Sync to Supabase
@@ -88,6 +136,12 @@ export const ProductsPage = () => {
 
     return (
         <div className="space-y-6 pb-20">
+            <KardexModal
+                isOpen={isKardexOpen}
+                onClose={() => setIsKardexOpen(false)}
+                product={selectedProductForKardex}
+            />
+
             <div className="flex justify-between items-center sticky top-0 bg-zinc-950/80 backdrop-blur-sm z-10 py-4">
                 <div>
                     <h2 className="text-3xl font-black text-white tracking-tight">Inventario</h2>
@@ -108,18 +162,24 @@ export const ProductsPage = () => {
                 {products.map(p => (
                     <div key={p.id} className="bg-zinc-900 p-3 sm:p-4 rounded-2xl flex items-center gap-2 sm:gap-4 border border-zinc-800 hover:border-zinc-700 transition-all group">
                         {/* Thumbnail */}
-                        <div className="w-14 h-14 sm:w-16 sm:h-16 bg-zinc-800 rounded-xl shrink-0 overflow-hidden flex items-center justify-center border border-zinc-700">
+                        <div className="w-14 h-14 sm:w-16 sm:h-16 bg-zinc-800 rounded-xl shrink-0 overflow-hidden flex items-center justify-center border border-zinc-700 relative">
                             {p.image ? (
                                 <img src={p.image} alt={p.name} loading="lazy" decoding="async" className="w-full h-full object-cover" />
                             ) : (
                                 <ImageIcon size={20} className="text-zinc-600 sm:w-6 sm:h-6" />
+                            )}
+                            {/* Stock Indicator overlay if low */}
+                            {p.stock !== undefined && p.stock <= 2 && (
+                                <div className="absolute inset-0 bg-red-500/20 ring-1 ring-inset ring-red-500/50 rounded-xl flex items-center justify-center">
+                                    <span className="text-[10px] bg-red-600 text-white px-1 rounded font-bold">BAJO</span>
+                                </div>
                             )}
                         </div>
 
                         {/* Info - Stacked for mobile */}
                         <div className="flex-1 min-w-0">
                             <h3 className="font-bold text-white text-sm sm:text-lg truncate leading-tight">{p.name}</h3>
-                            <div className="flex flex-wrap items-center gap-1 sm:gap-2 mt-0.5">
+                            <div className="flex flex-wrap items-center gap-1 sm:gap-2 mt-0.5 sm:mt-1">
                                 {p.category && (
                                     <span className="text-[9px] sm:text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700">
                                         {p.category}
@@ -135,12 +195,15 @@ export const ProductsPage = () => {
                                 <button
                                     onClick={async (e) => {
                                         e.stopPropagation();
-                                        const newStock = Math.max(0, (p.stock || 0) - 1);
-                                        await db.products.update(p.id!, { stock: newStock });
-                                        try {
-                                            const { supabase } = await import('../db/supabase');
-                                            if (supabase) await supabase.from('products').upsert({ ...p, stock: newStock, id: p.id });
-                                        } catch (err) { console.error(err); }
+                                        if (currentUser) {
+                                            await InventoryService.adjustStock(
+                                                p.id!,
+                                                -1,
+                                                'adjustment',
+                                                currentUser,
+                                                "Ajuste rápido (-1)"
+                                            );
+                                        }
                                     }}
                                     className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-md sm:rounded-lg transition-colors font-bold text-sm"
                                 >
@@ -152,12 +215,15 @@ export const ProductsPage = () => {
                                 <button
                                     onClick={async (e) => {
                                         e.stopPropagation();
-                                        const newStock = (p.stock || 0) + 1;
-                                        await db.products.update(p.id!, { stock: newStock });
-                                        try {
-                                            const { supabase } = await import('../db/supabase');
-                                            if (supabase) await supabase.from('products').upsert({ ...p, stock: newStock, id: p.id });
-                                        } catch (err) { console.error(err); }
+                                        if (currentUser) {
+                                            await InventoryService.adjustStock(
+                                                p.id!,
+                                                1,
+                                                'restock',
+                                                currentUser,
+                                                "Ajuste rápido (+1)"
+                                            );
+                                        }
                                     }}
                                     className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-md sm:rounded-lg transition-colors font-bold text-sm"
                                 >
@@ -169,6 +235,13 @@ export const ProductsPage = () => {
                         {/* Actions (Admin Only) - Smaller on mobile */}
                         {isAdmin && (
                             <div className="flex gap-1 sm:gap-2">
+                                <button
+                                    onClick={(e) => handleOpenKardex(p, e)}
+                                    className="p-2 sm:p-3 bg-indigo-900/20 text-indigo-400 rounded-lg sm:rounded-xl hover:bg-indigo-900/40 hover:text-indigo-300 transition-colors border border-indigo-900/30"
+                                    title="Ver Historial"
+                                >
+                                    <History size={14} className="sm:w-[18px] sm:h-[18px]" />
+                                </button>
                                 <button
                                     onClick={() => openModal(p)}
                                     className="p-2 sm:p-3 bg-zinc-800 text-zinc-300 rounded-lg sm:rounded-xl hover:bg-zinc-700 hover:text-white transition-colors border border-zinc-700"
@@ -191,7 +264,7 @@ export const ProductsPage = () => {
             {isModalOpen && (
                 <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
                     <div className="bg-zinc-900 w-full max-w-lg rounded-3xl shadow-2xl border border-zinc-800 overflow-hidden flex flex-col max-h-[90vh]">
-                        <div className="p-6 border-b border-zinc-800 flex justify-between items-center">
+                        <div className="p-6 border-b border-zinc-800 flex justify-between items-center bg-zinc-900">
                             <h3 className="text-xl font-black text-white">
                                 {editingId ? 'Editar Producto' : 'Nuevo Producto'}
                             </h3>
@@ -200,7 +273,7 @@ export const ProductsPage = () => {
                             </button>
                         </div>
 
-                        <form onSubmit={handleSave} className="p-6 space-y-4 overflow-y-auto">
+                        <form onSubmit={handleSave} className="p-6 space-y-4 overflow-y-auto custom-scrollbar">
                             {/* Image Preview */}
                             <div className="flex justify-center mb-6">
                                 <div className="w-32 h-32 bg-zinc-800 rounded-2xl border-2 border-dashed border-zinc-700 flex items-center justify-center overflow-hidden relative group">
@@ -303,7 +376,9 @@ export const ProductsPage = () => {
                                         onChange={e => setFormData({ ...formData, stock: parseInt(e.target.value) || 0 })}
                                         placeholder="0"
                                     />
-                                    <p className="text-[10px] text-zinc-500 mt-2 font-medium italic">Unidades disponibles actualmente.</p>
+                                    <p className="text-[10px] text-zinc-500 mt-2 font-medium italic">
+                                        ℹ️ Al guardar, se registrará un ajuste de inventario en el historial.
+                                    </p>
                                 </div>
 
                                 <div>
