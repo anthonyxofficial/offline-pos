@@ -4,6 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db, type User } from '../db/db';
 import { Download, Upload, History, CreditCard, Banknote, QrCode, Settings, Calendar as CalendarIcon, Trash2, UserPlus, Shield, Activity, Lock } from 'lucide-react';
 import { usePOS } from '../context/POSContext';
+import { ReportService } from '../services/ReportService';
 
 export const BalancePage = () => {
     const { currentUser } = usePOS();
@@ -193,30 +194,40 @@ export const BalancePage = () => {
         URL.revokeObjectURL(url);
     };
 
-    const handleExportCSV = () => {
+
+
+    // ... existing imports ...
+
+    const handleExportPDF = async () => {
         if (!sales || !expenses) return;
+        const [y, m, d] = customDate.split('-').map(Number);
+        const date = new Date(y, m - 1, d);
 
-        let csvContent = "\uFEFFFecha,Tipo,Descripcion/Producto,Vendedor,Metodo,Total\n";
-
-        // Add Sales
-        sales.forEach(sale => {
-            const date = sale.timestamp.toLocaleString();
-            const items = sale.items.map(i => `${i.name} (${i.size}) x${i.quantity}`).join(' | ');
-            csvContent += `"${date}","Venta","${items}","${sale.salespersonName || 'N/A'}","${sale.paymentMethod || 'cash'}","${sale.total}"\n`;
+        await ReportService.generateBalancePDF({
+            startDate: date,
+            endDate: date,
+            sales,
+            expenses,
+            totalSales,
+            totalExpenses,
+            netProfit
         });
+    };
 
-        // Add Expenses
-        expenses.forEach(exp => {
-            const date = exp.timestamp.toLocaleString();
-            csvContent += `"${date}","Gasto","${exp.description}","N/A","N/A","-${exp.amount}"\n`;
+    const handleExportExcel = async () => {
+        if (!sales || !expenses) return;
+        const [y, m, d] = customDate.split('-').map(Number);
+        const date = new Date(y, m - 1, d);
+
+        await ReportService.generateBalanceExcel({
+            startDate: date,
+            endDate: date,
+            sales,
+            expenses,
+            totalSales,
+            totalExpenses,
+            netProfit
         });
-
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.setAttribute("href", url);
-        link.setAttribute("download", `reporte-${customDate}.csv`);
-        link.click();
     };
 
     const handlePrint = () => {
@@ -277,8 +288,15 @@ export const BalancePage = () => {
                     </div>
                     <div className="flex gap-1.5 sm:gap-2 w-full sm:w-auto justify-end">
                         <button
-                            onClick={handleExportCSV}
-                            className="bg-zinc-900 text-zinc-300 px-2.5 sm:px-4 py-2 rounded-xl flex items-center gap-1 sm:gap-2 hover:bg-zinc-800 border border-zinc-800 transition-all font-bold text-xs sm:text-sm"
+                            onClick={handleExportPDF}
+                            className="bg-red-900/50 text-red-200 px-2.5 sm:px-4 py-2 rounded-xl flex items-center gap-1 sm:gap-2 hover:bg-red-900/80 border border-red-900/50 transition-all font-bold text-xs sm:text-sm"
+                        >
+                            <Download size={16} className="sm:w-[18px] sm:h-[18px]" />
+                            <span className="hidden sm:inline">PDF</span>
+                        </button>
+                        <button
+                            onClick={handleExportExcel}
+                            className="bg-emerald-900/50 text-emerald-200 px-2.5 sm:px-4 py-2 rounded-xl flex items-center gap-1 sm:gap-2 hover:bg-emerald-900/80 border border-emerald-900/50 transition-all font-bold text-xs sm:text-sm"
                         >
                             <Download size={16} className="sm:w-[18px] sm:h-[18px]" />
                             <span className="hidden sm:inline">Excel</span>
