@@ -4,33 +4,38 @@ import { X, CheckCircle, Smartphone, CreditCard, Banknote } from 'lucide-react';
 interface PaymentModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onConfirm: (method: string) => void;
+    onConfirm: (method: string, shippingCost: number) => void;
     total: number;
 }
 
 export const PaymentModal = ({ isOpen, onClose, onConfirm, total }: PaymentModalProps) => {
     const [method, setMethod] = useState<'cash' | 'card' | 'qr'>('cash');
     const [amountPaid, setAmountPaid] = useState('');
+    const [shippingCost, setShippingCost] = useState('');
     const [change, setChange] = useState(0);
 
     useEffect(() => {
         if (isOpen) {
             setAmountPaid('');
+            setShippingCost('');
             setChange(0);
             setMethod('cash');
         }
     }, [isOpen]);
 
     const paidAmount = parseFloat(amountPaid) || 0;
-    const canPay = method === 'cash' ? paidAmount >= total : true;
+    const shipping = parseFloat(shippingCost) || 0;
+    const finalTotal = total + shipping; // Calculate total including shipping
+
+    const canPay = method === 'cash' ? paidAmount >= finalTotal : true;
 
     useEffect(() => {
         if (method === 'cash') {
-            setChange(Math.max(0, paidAmount - total));
+            setChange(Math.max(0, paidAmount - finalTotal));
         } else {
             setChange(0);
         }
-    }, [amountPaid, total, method, paidAmount]);
+    }, [amountPaid, total, shippingCost, method, paidAmount]);
 
     if (!isOpen) return null;
 
@@ -40,7 +45,7 @@ export const PaymentModal = ({ isOpen, onClose, onConfirm, total }: PaymentModal
                 <div className="p-6 border-b border-zinc-800 flex justify-between items-center">
                     <div>
                         <h2 className="text-2xl font-black text-white tracking-tight">Pagar</h2>
-                        <p className="text-zinc-500 font-medium">Total a cobrar: <span className="text-white font-bold">L {total.toFixed(2)}</span></p>
+                        <p className="text-zinc-500 font-medium">Subtotal: <span className="text-zinc-300 font-bold">L {total.toFixed(2)}</span></p>
                     </div>
                     <button onClick={onClose} className="p-2 hover:bg-zinc-800 rounded-full text-zinc-400 hover:text-white transition-colors">
                         <X size={24} />
@@ -48,6 +53,26 @@ export const PaymentModal = ({ isOpen, onClose, onConfirm, total }: PaymentModal
                 </div>
 
                 <div className="p-6">
+                    {/* Shipping Cost Input */}
+                    <div className="mb-6">
+                        <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Costo de Envío (Opcional)</label>
+                        <div className="relative">
+                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 font-bold">L</span>
+                            <input
+                                type="number"
+                                className="w-full pl-8 pr-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl text-white font-bold focus:outline-none focus:border-white transition-all placeholder:text-zinc-700"
+                                placeholder="0.00"
+                                value={shippingCost}
+                                onChange={e => setShippingCost(e.target.value)}
+                            />
+                        </div>
+                    </div>
+
+                    <div className="mb-6 p-4 bg-zinc-800/50 rounded-2xl flex justify-between items-center border border-zinc-700/50">
+                        <span className="text-zinc-400 font-bold uppercase text-sm">Total Final</span>
+                        <span className="text-3xl font-black text-white">L {finalTotal.toFixed(2)}</span>
+                    </div>
+
                     <div className="grid grid-cols-3 gap-3 mb-6">
                         {['cash', 'card', 'qr'].map(m => (
                             <button
@@ -112,7 +137,7 @@ export const PaymentModal = ({ isOpen, onClose, onConfirm, total }: PaymentModal
 
                     <button
                         disabled={!canPay}
-                        onClick={() => onConfirm(method)}
+                        onClick={() => onConfirm(method, shipping)}
                         className={`
                             w-full mt-6 py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 transition-all
                             ${canPay

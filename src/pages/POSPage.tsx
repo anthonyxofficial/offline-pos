@@ -58,12 +58,14 @@ export const POSPage = () => {
         setIsPaymentOpen(true);
     };
 
-    const handleConfirmPayment = async (method: string) => {
-        const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    const handleConfirmPayment = async (method: string, shippingCost: number = 0) => {
+        const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        const total = subtotal + shippingCost;
 
         const sale: Sale = {
             timestamp: new Date(),
             total,
+            shippingCost,
             salespersonId: currentUser!.id!,
             salespersonName: currentUser!.name,
             items: cart,
@@ -85,9 +87,15 @@ export const POSPage = () => {
             const setting = await db.table('settings').get('whatsapp_number');
             if (setting?.value) {
                 const itemsList = cart.map(i => `- ${i.name} (Talla: ${i.size || 'N/A'}) x${i.quantity}`).join('%0A');
-                const message = `*Venta Realizada* %0A%0A` +
+                let message = `*Venta Realizada* %0A%0A` +
                     `*ID:* ${id}%0A` +
-                    `*Total:* L ${total.toFixed(2)}%0A` +
+                    `*Subtotal:* L ${subtotal.toFixed(2)}%0A`;
+
+                if (shippingCost > 0) {
+                    message += `*Envío:* L ${shippingCost.toFixed(2)}%0A`;
+                }
+
+                message += `*Total:* L ${total.toFixed(2)}%0A` +
                     `*Vendedor:* ${currentUser?.name}%0A` +
                     `*Método:* ${method === 'cash' ? 'Efectivo' : method === 'card' ? 'Tarjeta' : 'QR'}%0A%0A` +
                     `*Productos:*%0A${itemsList}%0A%0A` +
@@ -106,6 +114,7 @@ export const POSPage = () => {
                 // @ts-ignore
                 const { error } = await supabase.from('sales').insert([{
                     total,
+                    shipping_cost: shippingCost, // Map to snake_case for Supabase if needed, or camelCase if column is camelCase. Assuming snake_case based on previous code.
                     salesperson_name: currentUser?.name,
                     payment_method: method,
                     items: cart,

@@ -31,6 +31,7 @@ export interface Sale {
     salespersonName?: string; // Denormalized for easier display
     items: CartItem[];
     paymentMethod?: 'cash' | 'card' | 'qr';
+    shippingCost?: number;
 }
 
 export interface Expense {

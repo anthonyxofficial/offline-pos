@@ -57,6 +57,19 @@ export const ReceiptModal = ({ isOpen, onClose, sale }: ReceiptModalProps) => {
                     <div className="border-b-2 border-dashed border-gray-300 my-4"></div>
 
                     <div className="space-y-2">
+                        {sale.shippingCost && sale.shippingCost > 0 && (
+                            <>
+                                <div className="flex justify-between text-xs text-gray-600">
+                                    <span>Subtotal</span>
+                                    <span>L {(sale.total - sale.shippingCost).toFixed(2)}</span>
+                                </div>
+                                <div className="flex justify-between text-xs text-gray-600">
+                                    <span>Envío</span>
+                                    <span>L {sale.shippingCost.toFixed(2)}</span>
+                                </div>
+                                <div className="border-b border-gray-200 my-1"></div>
+                            </>
+                        )}
                         <div className="flex justify-between text-lg font-black">
                             <span>TOTAL</span>
                             <span>L {sale.total.toFixed(2)}</span>
@@ -131,6 +144,18 @@ export const ReceiptModal = ({ isOpen, onClose, sale }: ReceiptModalProps) => {
                         ))}
                     </tbody>
                     <tfoot>
+                        {sale.shippingCost && sale.shippingCost > 0 && (
+                            <>
+                                <tr>
+                                    <td colSpan={4} className="text-right font-bold uppercase text-gray-500 pt-4">Subtotal</td>
+                                    <td className="text-right font-bold font-mono pt-4">L {(sale.total - sale.shippingCost).toFixed(2)}</td>
+                                </tr>
+                                <tr>
+                                    <td colSpan={4} className="text-right font-bold uppercase text-gray-500">Envío</td>
+                                    <td className="text-right font-bold font-mono">L {sale.shippingCost.toFixed(2)}</td>
+                                </tr>
+                            </>
+                        )}
                         <tr>
                             <td colSpan={4} className="text-right font-black uppercase bg-gray-50">Total Final</td>
                             <td className="text-right font-black text-xl font-mono">L {sale.total.toFixed(2)}</td>
