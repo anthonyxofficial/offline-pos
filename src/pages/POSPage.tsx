@@ -133,95 +133,112 @@ export const POSPage = () => {
     };
 
     const handleConfirmPayment = async (method: string, shippingCost: number = 0) => {
-        const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-        const total = subtotal + shippingCost;
-
-        const sale: Sale = {
-            timestamp: new Date(),
-            total,
-            shippingCost,
-            salespersonId: currentUser!.id!,
-            salespersonName: currentUser!.name,
-            items: cart,
-            paymentMethod: method as 'cash' | 'card' | 'qr'
-        };
-
-        const id = await db.sales.add(sale);
-        const savedSale = { ...sale, id: id as number };
-
-        // Update Stock & Record Movement via Service
-        for (const item of cart) {
-            if (item.id) {
-                await InventoryService.adjustStock(
-                    item.id,
-                    -item.quantity,
-                    'sale',
-                    currentUser!,
-                    `Venta #${id}`,
-                    id.toString()
-                );
-            }
+        if (!currentUser) {
+            alert('Error: No hay usuario activo. Por favor seleccione un vendedor.');
+            setIsPaymentOpen(false);
+            return;
         }
 
-        setIsPaymentOpen(false);
-        clearCart();
-
-        // Show Receipt
-        setLastSale(savedSale);
-        setIsReceiptOpen(true);
-
-        // WhatsApp Notification
         try {
-            const setting = await db.table('settings').get('whatsapp_number');
-            if (setting?.value) {
-                const itemsList = cart.map(i => `- ${i.name} (Talla: ${i.size || 'N/A'}) x${i.quantity}`).join('%0A');
-                let message = `*Venta Realizada* %0A%0A` +
-                    `*ID:* ${id}%0A` +
-                    `*Subtotal:* L ${subtotal.toFixed(2)}%0A`;
+            const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            const total = subtotal + shippingCost;
 
-                if (shippingCost > 0) {
-                    message += `*Envío:* L ${shippingCost.toFixed(2)}%0A`;
+            const sale: Sale = {
+                timestamp: new Date(),
+                total,
+                shippingCost,
+                salespersonId: currentUser.id!,
+                salespersonName: currentUser.name,
+                items: cart,
+                paymentMethod: method as 'cash' | 'card' | 'qr'
+            };
+
+            const id = await db.sales.add(sale);
+            const savedSale = { ...sale, id: id as number };
+
+            // Update Stock & Record Movement via Service
+            // We wrap this in a nested try/catch so stock errors don't block the sale completion UI
+            try {
+                for (const item of cart) {
+                    if (item.id) {
+                        await InventoryService.adjustStock(
+                            item.id,
+                            -item.quantity,
+                            'sale',
+                            currentUser,
+                            `Venta #${id}`,
+                            id.toString()
+                        );
+                    }
                 }
-
-                message += `*Total:* L ${total.toFixed(2)}%0A` +
-                    `*Vendedor:* ${currentUser?.name}%0A` +
-                    `*Método:* ${method === 'cash' ? 'Efectivo' : method === 'card' ? 'Tarjeta' : 'QR'}%0A%0A` +
-                    `*Productos:*%0A${itemsList}%0A%0A` +
-                    `POS Offline Sneaker Store`;
-
-                window.open(`https://wa.me/${setting.value}?text=${message}`, '_blank');
+            } catch (stockError) {
+                console.error("Error al descontar inventario:", stockError);
+                // We continue to close the modal because the sale was already recorded financially
             }
-        } catch (err) {
-            console.error("Error sending WA notification:", err);
-        }
 
-        // Cloud Sync (Supabase)
-        try {
-            const { supabase } = await import('../db/supabase');
-            if (supabase) {
-                // @ts-ignore
-                const { error } = await supabase.from('sales').insert([{
-                    total,
-                    shipping_cost: shippingCost,
-                    salesperson_name: currentUser?.name,
-                    payment_method: method,
-                    items: cart,
-                    timestamp: (() => {
-                        const d = new Date();
-                        const offset = d.getTimezoneOffset() * 60000;
-                        return new Date(d.getTime() - offset).toISOString();
-                    })()
-                }]);
+            setIsPaymentOpen(false);
+            clearCart();
 
-                if (error) console.error("Error syncing to cloud:", error);
-                else console.log("Successfully synced to cloud");
+            // Show Receipt
+            setLastSale(savedSale);
+            setIsReceiptOpen(true);
+
+            // WhatsApp Notification
+            try {
+                const setting = await db.table('settings').get('whatsapp_number');
+                if (setting?.value) {
+                    const itemsList = cart.map(i => `- ${i.name} (Talla: ${i.size || 'N/A'}) x${i.quantity}`).join('%0A');
+                    let message = `*Venta Realizada* %0A%0A` +
+                        `*ID:* ${id}%0A` +
+                        `*Subtotal:* L ${subtotal.toFixed(2)}%0A`;
+
+                    if (shippingCost > 0) {
+                        message += `*Envío:* L ${shippingCost.toFixed(2)}%0A`;
+                    }
+
+                    message += `*Total:* L ${total.toFixed(2)}%0A` +
+                        `*Vendedor:* ${currentUser?.name}%0A` +
+                        `*Método:* ${method === 'cash' ? 'Efectivo' : method === 'card' ? 'Tarjeta' : 'QR'}%0A%0A` +
+                        `*Productos:*%0A${itemsList}%0A%0A` +
+                        `POS Offline Sneaker Store`;
+
+                    window.open(`https://wa.me/${setting.value}?text=${message}`, '_blank');
+                }
+            } catch (err) {
+                console.error("Error sending WA notification:", err);
             }
-        } catch (err) {
-            console.error("Cloud sync failed:", err);
-        }
 
-        // We removed the manual stock deduction loop here because we did it via service above
+            // Cloud Sync (Supabase)
+            try {
+                const { supabase } = await import('../db/supabase');
+                if (supabase) {
+                    // @ts-ignore
+                    const { error } = await supabase.from('sales').insert([{
+                        total,
+                        shipping_cost: shippingCost,
+                        salesperson_name: currentUser.name,
+                        payment_method: method,
+                        items: cart,
+                        timestamp: (() => {
+                            const d = new Date();
+                            const offset = d.getTimezoneOffset() * 60000;
+                            return new Date(d.getTime() - offset).toISOString();
+                        })()
+                    }]);
+
+                    if (error) console.error("Error syncing to cloud:", error);
+                }
+            } catch (err) {
+                console.error("Cloud sync failed:", err);
+            }
+
+        } catch (error) {
+            console.error("Error procesando la venta:", error);
+            alert('Ocurrió un error al procesar la venta. Intente de nuevo.');
+        }
     };
+
+
 
     return (
         <div className="flex flex-col md:flex-row h-full gap-4 relative">
