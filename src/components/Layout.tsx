@@ -4,7 +4,7 @@ import { Package, LayoutGrid, TrendingUp, LogOut } from 'lucide-react';
 import { usePOS } from '../context/POSContext';
 
 export const Layout = ({ children }: { children: React.ReactNode }) => {
-    const { currentUser, setCurrentUser, isAdmin } = usePOS();
+    const { currentUser, isAdmin, logout } = usePOS();
     const location = useLocation();
 
     const [time, setTime] = React.useState(new Date());
@@ -44,7 +44,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                     )}
                     {/* Mobile Only: Logout/User */}
                     <button
-                        onClick={() => setCurrentUser(null)}
+                        onClick={logout}
                         className="md:hidden flex flex-col items-center justify-center gap-1 p-2 text-zinc-500 hover:text-red-400 transition-all font-bold"
                     >
                         <LogOut size={22} />
@@ -60,7 +60,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                         </div>
                     )}
                     <button
-                        onClick={() => setCurrentUser(null)}
+                        onClick={logout}
                         className="p-3 text-zinc-500 hover:text-red-400 hover:bg-zinc-800 rounded-xl transition-all"
                     >
                         <LogOut size={20} />

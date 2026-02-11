@@ -7,6 +7,7 @@ interface POSContextType {
     currentUser: User | null;
     isAdmin: boolean;
     setCurrentUser: (user: User | null) => void;
+    logout: () => void;
     cart: CartItem[];
     addToCart: (product: Product, size?: string | number) => void;
     removeFromCart: (id: number, size?: string | number) => void;
@@ -29,12 +30,13 @@ export const POSContext = createContext<POSContextType>({
     currentUser: null,
     isAdmin: false,
     setCurrentUser: () => { },
+    logout: () => { },
     selectedCartKey: null,
     setSelectedCartKey: () => { },
 });
 
 export const POSProvider = ({ children }: { children: ReactNode }) => {
-    const [currentUser, setCurrentUser] = useState<User | null>(null);
+    const [currentUser, setCurrentUserState] = useState<User | null>(null);
     const [cart, setCart] = useState<CartItem[]>([]);
     const [selectedCartKey, setSelectedCartKey] = useState<string | null>(null);
 
@@ -48,6 +50,17 @@ export const POSProvider = ({ children }: { children: ReactNode }) => {
             // setCurrentUser(users[0]);
         }
     }, [users, currentUser]);
+
+    const setCurrentUser = async (user: User | null) => {
+        setCurrentUserState(user);
+        if (user && user.id) {
+            await db.users.update(user.id, { lastActive: new Date() });
+        }
+    };
+
+    const logout = () => {
+        setCurrentUserState(null);
+    };
 
     const addToCart = (product: Product, size?: string | number) => {
         setCart(prev => {
@@ -117,6 +130,7 @@ export const POSProvider = ({ children }: { children: ReactNode }) => {
             currentUser,
             isAdmin: currentUser?.role === 'admin',
             setCurrentUser,
+            logout,
             selectedCartKey,
             setSelectedCartKey
         }}>

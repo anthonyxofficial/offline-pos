@@ -1,12 +1,41 @@
 
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../db/db';
-import { Download, Upload, History, CreditCard, Banknote, QrCode, Settings, Calendar as CalendarIcon } from 'lucide-react';
+import { db, type User } from '../db/db';
+import { Download, Upload, History, CreditCard, Banknote, QrCode, Settings, Calendar as CalendarIcon, Trash2, UserPlus, Shield, Activity, Lock } from 'lucide-react';
 import { usePOS } from '../context/POSContext';
 
 export const BalancePage = () => {
     const { currentUser } = usePOS();
+    // ... existing date state ...
+
+    const users = useLiveQuery(() => db.users.toArray());
+    const [newUser, setNewUser] = useState<User>({ name: '', pin: '', role: 'sales' });
+    const [showUserAuth, setShowUserAuth] = useState(false);
+
+    const handleAddUser = async () => {
+        if (!newUser.name || !newUser.pin) return alert('Nombre y PIN requeridos');
+        if (newUser.pin.length < 4) return alert('El PIN debe tener 4 dígitos');
+
+        await db.users.add(newUser);
+        setNewUser({ name: '', pin: '', role: 'sales' });
+        alert('Usuario agregado exitosamente');
+    };
+
+    const handleDeleteUser = async (id: number) => {
+        if (id === currentUser?.id) return alert('No puedes eliminar tu propio usuario');
+        if (confirm('¿Estás seguro de eliminar este usuario?')) {
+            await db.users.delete(id);
+        }
+    };
+
+    // ... rest of the component ...
+
+    // Insert the User Management Section somewhere appropriate, e.g., after the charts or settings
+    // For now, I'll provide a block that can be inserted. 
+    // Wait, replace_file_content is for replacing existing content. I need to be careful.
+    // I should probably use `view_file` again to find a good insertion point if I want to append.
+    // Or I can rewrite the top part to include the imports and state, and then use another call to append the UI.
     const [customDate, setCustomDate] = useState(() => {
         const d = new Date();
         const year = d.getFullYear();
@@ -702,6 +731,133 @@ export const BalancePage = () => {
                             )}
                         </div>
                     </div>
+                </div>
+            </div>
+
+            {/* SECCIÓN DE SEGURIDAD Y USUARIOS */}
+            <div className="max-w-7xl mx-auto px-6 pb-20">
+                <div className="bg-zinc-900/50 border border-zinc-800 rounded-3xl overflow-hidden">
+                    <div className="p-6 border-b border-zinc-800 flex justify-between items-center bg-zinc-900/80">
+                        <div className="flex items-center gap-3">
+                            <div className="p-3 bg-indigo-500/10 rounded-xl text-indigo-400">
+                                <Shield size={24} />
+                            </div>
+                            <div>
+                                <h3 className="text-xl font-black text-white tracking-tight">Gestión de Accesos</h3>
+                                <p className="text-zinc-400 text-xs font-medium">Controla quién puede vender y acceder al sistema</p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={() => setShowUserAuth(!showUserAuth)}
+                            className="bg-zinc-800 hover:bg-zinc-700 text-white px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2"
+                        >
+                            {showUserAuth ? 'Ocultar' : 'Administrar'}
+                        </button>
+                    </div>
+
+                    {showUserAuth && (
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-0 md:divide-x divide-zinc-800">
+                            {/* Lista de Usuarios */}
+                            <div className="col-span-2 p-6">
+                                <h4 className="text-sm font-bold text-zinc-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                    <Activity size={16} />
+                                    Usuarios Activos
+                                </h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {users?.map(user => (
+                                        <div key={user.id} className="bg-zinc-950 p-4 rounded-2xl border border-zinc-800 flex items-center justify-between group hover:border-zinc-700 transition-all">
+                                            <div className="flex items-center gap-4">
+                                                <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-lg font-black ${user.id === currentUser?.id ? 'bg-indigo-500 text-white' : 'bg-zinc-800 text-zinc-400'}`}>
+                                                    {user.name.substring(0, 2).toUpperCase()}
+                                                </div>
+                                                <div>
+                                                    <p className="font-bold text-white flex items-center gap-2">
+                                                        {user.name}
+                                                        {user.id === currentUser?.id && <span className="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full">TÚ</span>}
+                                                    </p>
+                                                    <div className="flex items-center gap-2 text-xs text-zinc-500 font-medium">
+                                                        <span className={`w-2 h-2 rounded-full ${user.role === 'admin' ? 'bg-amber-400' : 'bg-emerald-400'}`} />
+                                                        <span className="uppercase">{user.role}</span>
+                                                        <span className="text-zinc-700 mx-1">•</span>
+                                                        <span>{user.lastActive ? new Date(user.lastActive).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Nunca'}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex items-center gap-2">
+                                                {user.id !== currentUser?.id && (
+                                                    <button
+                                                        onClick={() => handleDeleteUser(user.id!)}
+                                                        className="p-2 text-zinc-600 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-all"
+                                                        title="Eliminar Usuario"
+                                                    >
+                                                        <Trash2 size={20} />
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Agregar Usuario */}
+                            <div className="p-6 bg-zinc-900/30">
+                                <h4 className="text-sm font-bold text-zinc-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                    <UserPlus size={16} />
+                                    Nuevo Usuario
+                                </h4>
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-xs font-bold text-zinc-500 mb-1">Nombre</label>
+                                        <input
+                                            type="text"
+                                            className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white font-bold focus:outline-none focus:border-indigo-500 transition-all"
+                                            placeholder="Ej. Juan Pérez"
+                                            value={newUser.name}
+                                            onChange={e => setNewUser({ ...newUser, name: e.target.value })}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-zinc-500 mb-1">PIN de Acceso (4 dígitos)</label>
+                                        <div className="relative">
+                                            <input
+                                                type="text"
+                                                maxLength={4}
+                                                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white font-bold focus:outline-none focus:border-indigo-500 transition-all tracking-widest"
+                                                placeholder="0000"
+                                                value={newUser.pin}
+                                                onChange={e => setNewUser({ ...newUser, pin: e.target.value.replace(/\D/g, '') })}
+                                            />
+                                            <Lock size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-600" />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-zinc-500 mb-1">Rol</label>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <button
+                                                onClick={() => setNewUser({ ...newUser, role: 'sales' })}
+                                                className={`py-2 rounded-xl text-xs font-bold transition-all border ${newUser.role === 'sales' ? 'bg-emerald-500/10 border-emerald-500 text-emerald-400' : 'bg-zinc-950 border-zinc-800 text-zinc-500 hover:border-zinc-700'}`}
+                                            >
+                                                Vendedor
+                                            </button>
+                                            <button
+                                                onClick={() => setNewUser({ ...newUser, role: 'admin' })}
+                                                className={`py-2 rounded-xl text-xs font-bold transition-all border ${newUser.role === 'admin' ? 'bg-amber-500/10 border-amber-500 text-amber-400' : 'bg-zinc-950 border-zinc-800 text-zinc-500 hover:border-zinc-700'}`}
+                                            >
+                                                Admin
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={handleAddUser}
+                                        className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold transition-all shadow-lg shadow-indigo-500/20 active:scale-95 mt-4"
+                                    >
+                                        Crear Usuario
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
 

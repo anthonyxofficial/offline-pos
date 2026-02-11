@@ -16,6 +16,7 @@ export interface User {
     name: string;
     pin?: string;
     role?: 'admin' | 'sales';
+    lastActive?: Date;
 }
 
 export interface CartItem extends Product {
