@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db, type Sale, type Product } from '../db/db';
+import { db, type Sale, type Product, type Layaway, type Payment } from '../db/db';
 import { usePOS } from '../context/POSContext';
 import { ProductCard } from '../components/ProductCard';
 import { Cart } from '../components/Cart';
@@ -56,6 +56,73 @@ export const POSPage = () => {
         if (!currentUser) return;
         if (cart.length === 0) return;
         setIsPaymentOpen(true);
+    };
+
+    const handleConfirmLayaway = async (customerName: string, customerContact: string, initialPayment: number, method: string, shippingCost: number) => {
+        const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        const total = subtotal + shippingCost;
+        const balance = total - initialPayment;
+
+        const payment: Payment | undefined = initialPayment > 0 ? {
+            amount: initialPayment,
+            date: new Date(),
+            method: method as 'cash' | 'card' | 'qr'
+        } : undefined;
+
+        const layaway: Layaway = {
+            customerName,
+            customerContact,
+            items: cart,
+            total,
+            balance,
+            payments: payment ? [payment] : [],
+            status: balance <= 0 ? 'completed' : 'pending',
+            createdAt: new Date(),
+            updatedAt: new Date()
+        };
+
+        await db.layaways.add(layaway);
+
+        // Record Initial Payment as a Sale (for Cash Drawer)
+        if (initialPayment > 0) {
+            const paymentSale: Sale = {
+                timestamp: new Date(),
+                total: initialPayment,
+                salespersonId: currentUser!.id!,
+                salespersonName: currentUser!.name,
+                // Dummy item for the payment
+                items: [{
+                    // @ts-ignore
+                    id: 99999,
+                    name: `Abono Apartado - ${customerName}`,
+                    price: initialPayment,
+                    quantity: 1,
+                    image: '', category: 'System', size: 'N/A'
+                }],
+                paymentMethod: method as 'cash' | 'card' | 'qr',
+                shippingCost: 0
+            };
+            await db.sales.add(paymentSale);
+        }
+
+        // Decrease stock in Local DB (same logic as sale)
+        try {
+            for (const item of cart) {
+                if (item.id) {
+                    const product = await db.products.get(item.id);
+                    if (product && product.stock !== undefined) {
+                        const newStock = Math.max(0, product.stock - item.quantity);
+                        await db.products.update(item.id, { stock: newStock });
+                    }
+                }
+            }
+        } catch (err) {
+            console.error("Error updating stock:", err);
+        }
+
+        setIsPaymentOpen(false);
+        clearCart();
+        alert('Apartado creado exitosamente');
     };
 
     const handleConfirmPayment = async (method: string, shippingCost: number = 0) => {
@@ -161,6 +228,7 @@ export const POSPage = () => {
                 isOpen={isPaymentOpen}
                 onClose={() => setIsPaymentOpen(false)}
                 onConfirm={handleConfirmPayment}
+                onConfirmLayaway={handleConfirmLayaway} // Added layaway handler
                 total={cart.reduce((s, i) => s + (i.price * i.quantity), 0)}
             />
 

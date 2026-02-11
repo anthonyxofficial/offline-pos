@@ -43,19 +43,40 @@ export interface Expense {
     salespersonId: number;
 }
 
+export interface Payment {
+    amount: number;
+    date: Date;
+    method: 'cash' | 'card' | 'qr';
+}
+
+export interface Layaway {
+    id?: number;
+    customerName: string;
+    customerContact?: string;
+    items: CartItem[];
+    total: number;
+    balance: number; // Remaining amount to pay
+    payments: Payment[];
+    status: 'pending' | 'completed' | 'cancelled';
+    createdAt: Date;
+    updatedAt: Date;
+}
+
 export class POSDatabase extends Dexie {
     products!: Table<Product>;
     users!: Table<User>;
     sales!: Table<Sale>;
     expenses!: Table<Expense>;
+    layaways!: Table<Layaway>;
 
     constructor() {
         super('POSDatabase');
-        this.version(2).stores({
+        this.version(3).stores({
             products: '++id, name',
             users: '++id, name',
             sales: '++id, timestamp, salespersonId',
             expenses: '++id, timestamp, salespersonId',
+            layaways: '++id, customerName, status, createdAt',
             settings: 'key'
         });
     }

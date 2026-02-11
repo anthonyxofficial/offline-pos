@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Package, LayoutGrid, TrendingUp, LogOut } from 'lucide-react';
+import { Package, LayoutGrid, TrendingUp, LogOut, Calendar } from 'lucide-react';
 import { usePOS } from '../context/POSContext';
 
 export const Layout = ({ children }: { children: React.ReactNode }) => {
@@ -35,6 +35,8 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
 
                 <div className="flex flex-row md:flex-col gap-1 md:gap-4 w-full md:px-2 h-full md:h-auto items-center justify-around md:justify-start">
                     <NavLink to="/" icon={<LayoutGrid size={24} />} active={location.pathname === '/'} label="Ventas" />
+
+                    <NavLink to="/layaways" icon={<Calendar size={24} />} active={location.pathname === '/layaways'} label="Apartados" />
 
                     {isAdmin && (
                         <>
