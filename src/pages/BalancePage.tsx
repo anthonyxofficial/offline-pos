@@ -486,18 +486,30 @@ export const BalancePage = () => {
                                     <span className="text-zinc-400 text-[10px] font-bold uppercase tracking-widest">
                                         Fecha de Referencia
                                     </span>
-                                    <span className="text-[10px] font-bold text-zinc-900 bg-zinc-100 px-2 py-1 rounded-md">
+                                    <span className="text-[10px] font-bold text-zinc-900 bg-zinc-100 px-2 py-1 rounded-md flex items-center gap-1">
                                         {startDate.toLocaleDateString()} - {endDate.toLocaleDateString()}
+                                        <span className="text-[8px] text-zinc-400 font-mono ml-1" title="Zona Horaria Local">
+                                            ({Intl.DateTimeFormat().resolvedOptions().timeZone})
+                                        </span>
                                     </span>
                                 </div>
-                                <div className="relative group">
-                                    <CalendarIcon size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 group-hover:text-black transition-colors pointer-events-none" />
-                                    <input
-                                        type="date"
-                                        value={customDate}
-                                        onChange={(e) => setCustomDate(e.target.value)}
-                                        className="w-full bg-zinc-50 text-zinc-900 text-sm font-black uppercase pl-10 pr-4 py-3 rounded-xl border border-zinc-100 focus:ring-4 focus:ring-zinc-200 transition-all cursor-pointer shadow-sm"
-                                    />
+                                <div className="relative group flex gap-2">
+                                    <div className="relative flex-1">
+                                        <CalendarIcon size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 group-hover:text-black transition-colors pointer-events-none" />
+                                        <input
+                                            type="date"
+                                            value={customDate}
+                                            onChange={(e) => setCustomDate(e.target.value)}
+                                            className="w-full bg-zinc-50 text-zinc-900 text-sm font-black uppercase pl-10 pr-4 py-3 rounded-xl border border-zinc-100 focus:ring-4 focus:ring-zinc-200 transition-all cursor-pointer shadow-sm"
+                                        />
+                                    </div>
+                                    <button
+                                        onClick={() => window.location.reload()}
+                                        className="bg-zinc-900 text-white p-3 rounded-xl hover:bg-zinc-700 transition-colors shadow-sm"
+                                        title="Recargar Balance"
+                                    >
+                                        <RefreshCw size={20} />
+                                    </button>
                                 </div>
                             </div>
                         </div>
