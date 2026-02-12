@@ -34,6 +34,11 @@ export interface Sale {
     paymentMethod?: 'cash' | 'card' | 'qr';
     shippingCost?: number;
     synced?: boolean;
+    location?: {
+        lat: number;
+        lng: number;
+        accuracy: number;
+    };
 }
 
 export interface Expense {

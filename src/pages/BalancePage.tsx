@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, type User } from '../db/db';
-import { Download, Upload, History, CreditCard, Banknote, QrCode, Settings, Calendar as CalendarIcon, Trash2, UserPlus, Shield, Activity, Lock, RefreshCw } from 'lucide-react';
+import { Download, Trash2, Search, Filter, Calendar, TrendingUp, TrendingDown, DollarSign, Package, Users, Shield, UserPlus, Activity, Lock, RefreshCw, Smartphone, MapPin } from 'lucide-react';
 import { usePOS } from '../context/POSContext';
 import { ReportService } from '../services/ReportService';
 
@@ -805,8 +805,21 @@ export const BalancePage = () => {
                                                         {sale.paymentMethod}
                                                     </span>
                                                 </div>
-                                                <p className="text-[10px] text-zinc-500 font-medium">
-                                                    {sale.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • <span className="italic">Por {sale.salespersonName}</span>
+                                                <p className="text-[10px] text-zinc-500 font-medium flex items-center gap-2">
+                                                    <span>{sale.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • <span className="italic">Por {sale.salespersonName}</span></span>
+                                                    {sale.location && (
+                                                        <a
+                                                            href={`https://www.google.com/maps?q=${sale.location.lat},${sale.location.lng}`}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="flex items-center gap-1 text-indigo-500 hover:text-indigo-400 bg-indigo-500/10 px-1.5 py-0.5 rounded-full transition-colors"
+                                                            title="Ver ubicación de venta"
+                                                            onClick={(e) => e.stopPropagation()}
+                                                        >
+                                                            <MapPin size={10} />
+                                                            <span>Mapa</span>
+                                                        </a>
+                                                    )}
                                                 </p>
                                             </div>
                                         </div>
