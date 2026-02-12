@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { X, ArrowRight, ArrowLeft, Package, User, Calendar } from 'lucide-react';
 import { db, type StockMovement, type Product } from '../db/db';
+import { formatDateTime } from '../utils/dateUtils';
 
 interface KardexModalProps {
     isOpen: boolean;
@@ -74,7 +75,7 @@ export const KardexModal = ({ isOpen, onClose, product }: KardexModalProps) => {
                                                 </span>
                                                 <span className="text-xs text-zinc-500 flex items-center gap-1">
                                                     <Calendar size={10} />
-                                                    {new Date(move.timestamp).toLocaleDateString()} {new Date(move.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                    {formatDateTime(new Date(move.timestamp))}
                                                 </span>
                                             </div>
                                             <p className="text-zinc-600 text-xs flex items-center gap-1">

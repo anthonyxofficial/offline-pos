@@ -1,7 +1,8 @@
-import jsPDF from 'jspdf';
+import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import type { Sale, Expense } from '../db/db';
+import { formatTime, formatDate, formatDateTime } from '../utils/dateUtils';
 
 interface ReportData {
     startDate: Date;
@@ -16,11 +17,7 @@ interface ReportData {
 export class ReportService {
 
     private static formatDate(date: Date): string {
-        return new Date(date).toLocaleDateString('es-HN', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
-        });
+        return formatDate(new Date(date));
     }
 
     private static formatCurrency(amount: number): string {
@@ -87,7 +84,7 @@ export class ReportService {
         yPos += 5;
 
         const salesBody = sales.map(s => [
-            new Date(s.timestamp).toLocaleDateString() + ' ' + new Date(s.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            formatDateTime(new Date(s.timestamp)),
             `#${s.id}`,
             s.salespersonName || 'N/A',
             s.paymentMethod?.toUpperCase() || 'CASH',
@@ -123,7 +120,7 @@ export class ReportService {
             yPos += 5;
 
             const expensesBody = expenses.map(e => [
-                new Date(e.timestamp).toLocaleDateString(),
+                formatDate(new Date(e.timestamp)),
                 e.description,
                 this.formatCurrency(e.amount)
             ]);
@@ -167,8 +164,8 @@ export class ReportService {
         // --- SHEET 2: SALES ---
         const salesData = sales.map(s => ({
             ID: s.id,
-            Fecha: new Date(s.timestamp).toLocaleDateString(),
-            Hora: new Date(s.timestamp).toLocaleTimeString(),
+            Fecha: formatDate(new Date(s.timestamp)),
+            Hora: formatTime(new Date(s.timestamp)),
             Vendedor: s.salespersonName,
             Metodo: s.paymentMethod,
             Envio: s.shippingCost || 0,
@@ -181,7 +178,7 @@ export class ReportService {
         // --- SHEET 3: EXPENSES ---
         const expensesData = expenses.map(e => ({
             ID: e.id,
-            Fecha: new Date(e.timestamp).toLocaleDateString(),
+            Fecha: formatDate(new Date(e.timestamp)),
             Descripcion: e.description,
             Monto: e.amount
         }));

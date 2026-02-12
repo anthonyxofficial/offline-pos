@@ -1,5 +1,6 @@
 import { X, Printer, CheckCircle } from 'lucide-react';
 import type { Sale } from '../db/db';
+import { formatDateTime } from '../utils/dateUtils';
 
 interface ReceiptModalProps {
     isOpen: boolean;
@@ -34,7 +35,7 @@ export const ReceiptModal = ({ isOpen, onClose, sale }: ReceiptModalProps) => {
                         </div>
                         <h1 className="text-2xl font-black uppercase tracking-tight mb-1">PA LOS PIES</h1>
                         <p className="text-gray-500 text-xs font-bold uppercase tracking-widest">Comprobante de Venta</p>
-                        <p className="text-gray-400 text-[10px] mt-1 font-bold">{sale.timestamp.toLocaleString()}</p>
+                        <p className="text-gray-400 text-[10px] mt-1 font-bold">{formatDateTime(sale.timestamp)}</p>
                         <p className="text-gray-400 text-[10px] font-bold">Ticket No. {sale.id?.toString().padStart(6, '0')}</p>
                     </div>
 
@@ -107,7 +108,7 @@ export const ReceiptModal = ({ isOpen, onClose, sale }: ReceiptModalProps) => {
                     <div className="text-right">
                         <h2 className="text-xl font-black uppercase">Comprobante de Venta</h2>
                         <p className="font-mono text-sm">NO. FACTURA: {sale.id?.toString().padStart(6, '0')}</p>
-                        <p className="font-mono text-xs text-gray-500">{sale.timestamp.toLocaleString()}</p>
+                        <p className="font-mono text-xs text-gray-500">{formatDateTime(sale.timestamp)}</p>
                     </div>
                 </div>
 

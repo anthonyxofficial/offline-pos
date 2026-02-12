@@ -6,6 +6,7 @@ import { supabase, syncAllData } from '../db/supabase';
 import { Download, Trash2, Shield, UserPlus, Activity, Lock, RefreshCw, MapPin, Settings, Upload, QrCode, Banknote, CreditCard, History, Calendar as CalendarIcon, Cloud, Database } from 'lucide-react';
 import { usePOS } from '../context/POSContext';
 import { ReportService } from '../services/ReportService';
+import { formatTime } from '../utils/dateUtils';
 
 export const BalancePage = () => {
     const { currentUser } = usePOS();
@@ -1154,7 +1155,7 @@ export const BalancePage = () => {
                                                 <td className="px-4 py-3 font-mono text-xs text-zinc-500">#{sale.id}</td>
                                                 <td className="px-4 py-3 text-white font-medium">
                                                     {sale.timestamp instanceof Date
-                                                        ? sale.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                                                        ? formatTime(sale.timestamp)
                                                         : <span className="text-red-500 text-[10px] font-bold">ERROR FECHA</span>}
                                                 </td>
                                                 <td className="px-4 py-3 text-emerald-400 font-bold">L {sale.total.toFixed(2)}</td>
@@ -1200,7 +1201,7 @@ export const BalancePage = () => {
                                                 <td className="px-4 py-3 font-mono text-xs text-zinc-500">#{expense.id}</td>
                                                 <td className="px-4 py-3 text-white font-medium">
                                                     {expense.timestamp instanceof Date
-                                                        ? expense.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                                                        ? formatTime(expense.timestamp)
                                                         : 'Invalid Date'}
                                                 </td>
                                                 <td className="px-4 py-3 text-red-400 font-bold">L {expense.amount.toFixed(2)}</td>

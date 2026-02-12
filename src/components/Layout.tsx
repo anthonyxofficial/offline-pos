@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { Package, LayoutGrid, TrendingUp, LogOut, Calendar } from 'lucide-react';
 import { usePOS } from '../context/POSContext';
 import { db } from '../db/db';
+import { formatTime, formatDate } from '../utils/dateUtils';
 
 export const Layout = ({ children }: { children: React.ReactNode }) => {
     const { currentUser, isAdmin, logout } = usePOS();
@@ -62,10 +63,10 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                 {/* Clock - Desktop Only */}
                 <div className="hidden md:flex flex-col items-center mb-8 text-center">
                     <span className="text-xl font-black text-white tracking-tighter leading-none">
-                        {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {formatTime(time)}
                     </span>
                     <span className="text-[10px] text-zinc-500 font-bold uppercase">
-                        {time.toLocaleDateString([], { weekday: 'short', day: 'numeric' })}
+                        {formatDate(time)}
                     </span>
                 </div>
 

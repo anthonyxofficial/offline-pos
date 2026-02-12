@@ -1,5 +1,6 @@
 import { X, Calendar, Clock, Banknote, CreditCard, Smartphone } from 'lucide-react';
 import type { Sale } from '../db/db';
+import { formatDate, formatTime } from '../utils/dateUtils';
 
 interface RecentSalesModalProps {
     isOpen: boolean;
@@ -48,11 +49,11 @@ export const RecentSalesModal = ({ isOpen, onClose, sales, onRepaintReceipt }: R
                                     <div className="flex items-center gap-3 text-zinc-500 text-xs">
                                         <span className="flex items-center gap-1">
                                             <Calendar size={10} />
-                                            {sale.timestamp.toLocaleDateString()}
+                                            {formatDate(sale.timestamp)}
                                         </span>
                                         <span className="flex items-center gap-1">
                                             <Clock size={10} />
-                                            {sale.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            {formatTime(sale.timestamp)}
                                         </span>
                                         <span className="font-medium text-zinc-400">
                                             {sale.items.length} items
