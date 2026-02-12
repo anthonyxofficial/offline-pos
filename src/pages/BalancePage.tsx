@@ -162,7 +162,13 @@ export const BalancePage = () => {
 
     const expenses = useLiveQuery(async () => {
         if (!startDate || !endDate) return [];
-        return await db.expenses.where('timestamp').between(startDate, endDate, true, true).reverse().toArray();
+
+        const allExpenses = await db.expenses.toArray();
+        return allExpenses.filter(exp => {
+            const expDate = new Date(exp.timestamp);
+            if (isNaN(expDate.getTime())) return false;
+            return expDate >= startDate && expDate <= endDate;
+        }).sort((a, b) => b.id! - a.id!);
     }, [startDate, endDate]);
 
     const totalSales = sales?.reduce((sum, sale) => {
