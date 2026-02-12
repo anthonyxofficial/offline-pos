@@ -146,6 +146,28 @@ export const POSPage = () => {
         alert('Apartado creado exitosamente');
     };
 
+    // Helper to get location
+    const getCurrentLocation = async (): Promise<{ lat: number, lng: number, accuracy: number } | undefined> => {
+        if (!navigator.geolocation) return undefined;
+
+        return new Promise((resolve) => {
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    resolve({
+                        lat: pos.coords.latitude,
+                        lng: pos.coords.longitude,
+                        accuracy: pos.coords.accuracy
+                    });
+                },
+                (err) => {
+                    console.warn("Geolocation failed:", err);
+                    resolve(undefined);
+                },
+                { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+            );
+        });
+    };
+
     const handleConfirmPayment = async (method: string, shippingCost: number = 0) => {
         if (!currentUser) {
             alert('Error: No hay usuario activo. Por favor seleccione un vendedor.');
@@ -154,17 +176,21 @@ export const POSPage = () => {
         }
 
         try {
+            // Capture Location
+            const location = await getCurrentLocation();
+
             const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
             const total = subtotal + shippingCost;
 
-            const sale: Sale = {
+            const sale: any = {
                 timestamp: new Date(),
                 total,
                 shippingCost,
                 salespersonId: currentUser.id!,
                 salespersonName: currentUser.name,
                 items: cart,
-                paymentMethod: method as 'cash' | 'card' | 'qr'
+                paymentMethod: method as 'cash' | 'card' | 'qr',
+                location: location // Save location
             };
 
             console.log("Attempting to save sale:", sale);
