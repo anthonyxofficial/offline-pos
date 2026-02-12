@@ -71,6 +71,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
             </nav>
 
             <main className="flex-1 overflow-hidden relative pb-16 md:pb-0">
+                <div className="absolute top-2 right-2 z-50 pointer-events-none opacity-30 text-[10px] text-white font-mono">v1.2.6</div>
                 <div className="absolute inset-0 bg-gradient-to-br from-zinc-950 to-zinc-900 z-0 opacity-50" />
                 <div className="relative z-10 w-full h-full p-4 md:p-6 overflow-y-auto">
                     {children}

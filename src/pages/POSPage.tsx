@@ -11,6 +11,8 @@ import { ReceiptModal } from '../components/ReceiptModal';
 import { InventoryService } from '../services/InventoryService';
 
 import { SizeSelectorModal } from '../components/SizeSelectorModal';
+import { RecentSalesModal } from '../components/RecentSalesModal';
+import { History } from 'lucide-react';
 
 export const POSPage = () => {
     const { addToCart, cart, clearCart, currentUser, setCurrentUser } = usePOS();
@@ -20,6 +22,18 @@ export const POSPage = () => {
     const [isPaymentOpen, setIsPaymentOpen] = useState(false);
     const [lastSale, setLastSale] = useState<Sale | null>(null);
     const [isReceiptOpen, setIsReceiptOpen] = useState(false);
+
+    // Recent Sales
+    const [isRecentSalesOpen, setIsRecentSalesOpen] = useState(false);
+    const recentSales = useLiveQuery(async () => {
+        if (!currentUser?.id) return [];
+        return await db.sales
+            .where('salespersonId')
+            .equals(currentUser.id)
+            .reverse()
+            .limit(20)
+            .toArray();
+    }, [currentUser?.id, lastSale]);
 
     // Size Selection
     const [selectedProductForSize, setSelectedProductForSize] = useState<Product | null>(null);
@@ -254,11 +268,21 @@ export const POSPage = () => {
                 onSelect={confirmAddToCart}
             />
 
+            <RecentSalesModal
+                isOpen={isRecentSalesOpen}
+                onClose={() => setIsRecentSalesOpen(false)}
+                sales={recentSales || []}
+                onRepaintReceipt={(sale) => {
+                    setLastSale(sale);
+                    setIsReceiptOpen(true);
+                }}
+            />
+
             <PaymentModal
                 isOpen={isPaymentOpen}
                 onClose={() => setIsPaymentOpen(false)}
                 onConfirm={handleConfirmPayment}
-                onConfirmLayaway={handleConfirmLayaway} // Added layaway handler
+                onConfirmLayaway={handleConfirmLayaway}
                 total={cart.reduce((s, i) => s + (i.price * i.quantity), 0)}
             />
 
@@ -298,6 +322,15 @@ export const POSPage = () => {
                             onChange={(e) => setSearch(e.target.value)}
                         />
                     </div>
+                    {currentUser && (
+                        <button
+                            onClick={() => setIsRecentSalesOpen(true)}
+                            className="aspect-square h-full bg-zinc-800 border border-zinc-700 rounded-xl flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-700 transition-all shadow-sm group"
+                            title="Historial de Ventas Recientes"
+                        >
+                            <History size={24} className="group-hover:scale-110 transition-transform" />
+                        </button>
+                    )}
                 </div>
 
                 <CategoryFilter activeCategory={activeCategory} onSelect={setActiveCategory} />
