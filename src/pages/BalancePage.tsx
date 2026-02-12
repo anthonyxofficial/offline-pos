@@ -137,10 +137,26 @@ export const BalancePage = () => {
 
     const sales = useLiveQuery(async () => {
         if (!startDate || !endDate) return [];
-        const result = await db.sales.where('timestamp').between(startDate, endDate, true, true).reverse().toArray();
-        console.log(`[BALANCE DEBUG] Sales Query: Found ${result.length} sales`);
+
+        // Strategy 1: Indexed Query (Fast)
+        let result = await db.sales.where('timestamp').between(startDate, endDate, true, true).reverse().toArray();
+
+        console.log(`[BALANCE DEBUG] Strategy 1 (Indexed): Found ${result.length} sales`);
+
+        // Strategy 2: Fallback (Slow but Robust) - If indexed query fails or returns 0, try fetching all and filtering manually
+        // This fixes cases where timestamp is stored as string or index is corrupted
+        if (result.length === 0) {
+            console.log(`[BALANCE DEBUG] Strategy 2 (Fallback): Fetching all sales...`);
+            const allSales = await db.sales.toArray();
+            result = allSales.filter(s => {
+                const d = new Date(s.timestamp);
+                return d >= startDate && d <= endDate;
+            }).reverse();
+            console.log(`[BALANCE DEBUG] Strategy 2: Found ${result.length} sales after manual filter`);
+        }
+
         console.log(`[BALANCE DEBUG] Date Range: ${startDate} to ${endDate}`);
-        console.log(`[BALANCE DEBUG] Sales:`, result);
+        console.log(`[BALANCE DEBUG] Final Sales List:`, result);
         return result;
     }, [startDate, endDate]);
 
