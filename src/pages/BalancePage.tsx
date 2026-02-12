@@ -37,6 +37,8 @@ export const BalancePage = () => {
     // Wait, replace_file_content is for replacing existing content. I need to be careful.
     // I should probably use `view_file` again to find a good insertion point if I want to append.
     // Or I can rewrite the top part to include the imports and state, and then use another call to append the UI.
+    // Date & Range Logic
+    const [filterType, setFilterType] = useState<'daily' | 'weekly' | 'biweekly' | 'monthly'>('daily');
     const [customDate, setCustomDate] = useState(() => {
         const d = new Date();
         const year = d.getFullYear();
@@ -44,6 +46,51 @@ export const BalancePage = () => {
         const day = String(d.getDate()).padStart(2, '0');
         return `${year}-${month}-${day}`;
     });
+
+    const getRange = (dateStr: string, type: typeof filterType) => {
+        const [y, m, d] = dateStr.split('-').map(Number);
+        const reference = new Date(y, m - 1, d);
+        let start = new Date(reference);
+        let end = new Date(reference);
+
+        switch (type) {
+            case 'daily':
+                start.setHours(0, 0, 0, 0);
+                end.setHours(23, 59, 59, 999);
+                break;
+            case 'weekly':
+                // Adjust to Monday - Sunday
+                const day = start.getDay();
+                const diff = start.getDate() - day + (day === 0 ? -6 : 1);
+                start.setDate(diff);
+                start.setHours(0, 0, 0, 0);
+
+                end = new Date(start);
+                end.setDate(start.getDate() + 6);
+                end.setHours(23, 59, 59, 999);
+                break;
+            case 'biweekly':
+                if (reference.getDate() <= 15) {
+                    start.setDate(1);
+                    end.setDate(15);
+                } else {
+                    start.setDate(16);
+                    end = new Date(y, m, 0); // Last day of month
+                }
+                start.setHours(0, 0, 0, 0);
+                end.setHours(23, 59, 59, 999);
+                break;
+            case 'monthly':
+                start.setDate(1);
+                end = new Date(y, m, 0);
+                start.setHours(0, 0, 0, 0);
+                end.setHours(23, 59, 59, 999);
+                break;
+        }
+        return { start, end };
+    };
+
+    const { start: startDate, end: endDate } = getRange(customDate, filterType);
 
     if (currentUser?.role !== 'admin') {
         return (
@@ -89,20 +136,14 @@ export const BalancePage = () => {
     };
 
     const sales = useLiveQuery(async () => {
-        if (!customDate) return [];
-        const [y, m, d] = customDate.split('-').map(Number);
-        const start = new Date(y, m - 1, d, 0, 0, 0);
-        const end = new Date(y, m - 1, d, 23, 59, 59);
-        return await db.sales.where('timestamp').between(start, end).reverse().toArray();
-    }, [customDate]);
+        if (!startDate || !endDate) return [];
+        return await db.sales.where('timestamp').between(startDate, endDate).reverse().toArray();
+    }, [startDate, endDate]);
 
     const expenses = useLiveQuery(async () => {
-        if (!customDate) return [];
-        const [y, m, d] = customDate.split('-').map(Number);
-        const start = new Date(y, m - 1, d, 0, 0, 0);
-        const end = new Date(y, m - 1, d, 23, 59, 59);
-        return await db.expenses.where('timestamp').between(start, end).reverse().toArray();
-    }, [customDate]);
+        if (!startDate || !endDate) return [];
+        return await db.expenses.where('timestamp').between(startDate, endDate).reverse().toArray();
+    }, [startDate, endDate]);
 
     const totalSales = sales?.reduce((sum, sale) => sum + sale.total, 0) || 0;
     const totalExpenses = expenses?.reduce((sum, exp) => sum + exp.amount, 0) || 0;
@@ -200,12 +241,10 @@ export const BalancePage = () => {
 
     const handleExportPDF = async () => {
         if (!sales || !expenses) return;
-        const [y, m, d] = customDate.split('-').map(Number);
-        const date = new Date(y, m - 1, d);
 
         await ReportService.generateBalancePDF({
-            startDate: date,
-            endDate: date,
+            startDate,
+            endDate,
             sales,
             expenses,
             totalSales,
@@ -216,12 +255,10 @@ export const BalancePage = () => {
 
     const handleExportExcel = async () => {
         if (!sales || !expenses) return;
-        const [y, m, d] = customDate.split('-').map(Number);
-        const date = new Date(y, m - 1, d);
 
         await ReportService.generateBalanceExcel({
-            startDate: date,
-            endDate: date,
+            startDate,
+            endDate,
             sales,
             expenses,
             totalSales,
@@ -420,16 +457,38 @@ export const BalancePage = () => {
                             </h3>
                             <p className="text-zinc-400 text-[10px] font-bold mt-2 uppercase">Ventas - Gastos</p>
                         </div>
-                        <div className="mt-8 flex flex-col gap-2">
-                            <span className="text-zinc-400 text-[10px] font-bold uppercase tracking-widest">Seleccionar Fecha</span>
-                            <div className="relative group">
-                                <CalendarIcon size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 group-hover:text-black transition-colors pointer-events-none" />
-                                <input
-                                    type="date"
-                                    value={customDate}
-                                    onChange={(e) => setCustomDate(e.target.value)}
-                                    className="w-full bg-zinc-50 text-zinc-900 text-sm font-black uppercase pl-10 pr-4 py-3 rounded-xl border border-zinc-100 focus:ring-4 focus:ring-zinc-200 transition-all cursor-pointer shadow-sm"
-                                />
+                        <div className="mt-6 flex flex-col gap-4">
+                            {/* Filter Logic */}
+                            <div className="flex bg-zinc-100 p-1 rounded-xl">
+                                {(['daily', 'weekly', 'biweekly', 'monthly'] as const).map(type => (
+                                    <button
+                                        key={type}
+                                        onClick={() => setFilterType(type)}
+                                        className={`flex-1 py-1.5 text-[10px] font-black uppercase rounded-lg transition-all ${filterType === type ? 'bg-zinc-900 text-white shadow-md' : 'text-zinc-500 hover:text-zinc-900'}`}
+                                    >
+                                        {type === 'daily' ? 'Día' : type === 'weekly' ? 'Semana' : type === 'biweekly' ? 'Quincena' : 'Mes'}
+                                    </button>
+                                ))}
+                            </div>
+
+                            <div className="space-y-2">
+                                <div className="flex justify-between items-end">
+                                    <span className="text-zinc-400 text-[10px] font-bold uppercase tracking-widest">
+                                        Fecha de Referencia
+                                    </span>
+                                    <span className="text-[10px] font-bold text-zinc-900 bg-zinc-100 px-2 py-1 rounded-md">
+                                        {startDate.toLocaleDateString()} - {endDate.toLocaleDateString()}
+                                    </span>
+                                </div>
+                                <div className="relative group">
+                                    <CalendarIcon size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 group-hover:text-black transition-colors pointer-events-none" />
+                                    <input
+                                        type="date"
+                                        value={customDate}
+                                        onChange={(e) => setCustomDate(e.target.value)}
+                                        className="w-full bg-zinc-50 text-zinc-900 text-sm font-black uppercase pl-10 pr-4 py-3 rounded-xl border border-zinc-100 focus:ring-4 focus:ring-zinc-200 transition-all cursor-pointer shadow-sm"
+                                    />
+                                </div>
                             </div>
                         </div>
                     </div>
