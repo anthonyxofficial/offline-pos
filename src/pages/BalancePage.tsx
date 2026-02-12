@@ -1028,6 +1028,102 @@ export const BalancePage = () => {
                         <p className="text-[10px] font-black uppercase">Sello de Empresa</p>
                     </div>
                 </div>
+
+                {/* Transaction History & Debug */}
+                <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6 pb-20">
+                    <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 overflow-hidden">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-white font-bold flex items-center gap-2">
+                                <History size={18} className="text-zinc-500" />
+                                Historial de Ventas ({startDate.toLocaleDateString()} - {endDate.toLocaleDateString()})
+                            </h3>
+                            <span className="text-xs font-mono text-zinc-500 bg-zinc-950 px-2 py-1 rounded">
+                                {sales?.length || 0} registros
+                            </span>
+                        </div>
+
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left text-sm text-zinc-400">
+                                <thead className="text-xs uppercase bg-zinc-950/50 text-zinc-500">
+                                    <tr>
+                                        <th className="px-4 py-3 rounded-l-xl">ID</th>
+                                        <th className="px-4 py-3">Hora</th>
+                                        <th className="px-4 py-3">Monto</th>
+                                        <th className="px-4 py-3 rounded-r-xl">Método</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-zinc-800">
+                                    {sales?.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={4} className="px-4 py-8 text-center text-zinc-600 italic">
+                                                No hay ventas en este rango.
+                                            </td>
+                                        </tr>
+                                    ) : (
+                                        sales?.map(sale => (
+                                            <tr key={sale.id} className="hover:bg-zinc-800/30 transition-colors">
+                                                <td className="px-4 py-3 font-mono text-xs text-zinc-500">#{sale.id}</td>
+                                                <td className="px-4 py-3 text-white font-medium">
+                                                    {sale.timestamp instanceof Date
+                                                        ? sale.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                                                        : <span className="text-red-500 text-[10px] font-bold">ERROR FECHA</span>}
+                                                </td>
+                                                <td className="px-4 py-3 text-emerald-400 font-bold">L {sale.total.toFixed(2)}</td>
+                                                <td className="px-4 py-3 capitalize text-xs">{sale.paymentMethod}</td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 overflow-hidden">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-white font-bold flex items-center gap-2">
+                                <Activity size={18} className="text-red-500" />
+                                Historial de Gastos
+                            </h3>
+                            <span className="text-xs font-mono text-zinc-500 bg-zinc-950 px-2 py-1 rounded">
+                                {expenses?.length || 0} registros
+                            </span>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left text-sm text-zinc-400">
+                                <thead className="text-xs uppercase bg-zinc-950/50 text-zinc-500">
+                                    <tr>
+                                        <th className="px-4 py-3 rounded-l-xl">ID</th>
+                                        <th className="px-4 py-3">Hora</th>
+                                        <th className="px-4 py-3">Monto</th>
+                                        <th className="px-4 py-3 rounded-r-xl">Desc.</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-zinc-800">
+                                    {expenses?.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={4} className="px-4 py-8 text-center text-zinc-600 italic">
+                                                No hay gastos en este rango.
+                                            </td>
+                                        </tr>
+                                    ) : (
+                                        expenses?.map(expense => (
+                                            <tr key={expense.id} className="hover:bg-zinc-800/30 transition-colors">
+                                                <td className="px-4 py-3 font-mono text-xs text-zinc-500">#{expense.id}</td>
+                                                <td className="px-4 py-3 text-white font-medium">
+                                                    {expense.timestamp instanceof Date
+                                                        ? expense.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                                                        : 'Invalid Date'}
+                                                </td>
+                                                <td className="px-4 py-3 text-red-400 font-bold">L {expense.amount.toFixed(2)}</td>
+                                                <td className="px-4 py-3 text-xs truncate max-w-[100px]" title={expense.description}>{expense.description}</td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     );

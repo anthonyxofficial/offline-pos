@@ -2,6 +2,7 @@ import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Package, LayoutGrid, TrendingUp, LogOut, Calendar } from 'lucide-react';
 import { usePOS } from '../context/POSContext';
+import { db } from '../db/db';
 
 export const Layout = ({ children }: { children: React.ReactNode }) => {
     const { currentUser, isAdmin, logout } = usePOS();
@@ -12,6 +13,41 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
     React.useEffect(() => {
         const timer = setInterval(() => setTime(new Date()), 1000);
         return () => clearInterval(timer);
+    }, []);
+
+    // Data Repair: Ensure dates are Dates, not strings (Fixes Balance Page)
+    React.useEffect(() => {
+        const repairDates = async () => {
+            try {
+                // Repair Sales
+                const sales = await db.sales.toArray();
+                let repairedSales = 0;
+                for (const sale of sales) {
+                    if (typeof sale.timestamp === 'string') {
+                        await db.sales.update(sale.id!, { timestamp: new Date(sale.timestamp) });
+                        repairedSales++;
+                    }
+                }
+
+                // Repair Expenses
+                const expenses = await db.expenses.toArray();
+                let repairedExpenses = 0;
+                for (const exp of expenses) {
+                    if (typeof exp.timestamp === 'string') {
+                        await db.expenses.update(exp.id!, { timestamp: new Date(exp.timestamp) });
+                        repairedExpenses++;
+                    }
+                }
+
+                if (repairedSales > 0 || repairedExpenses > 0) {
+                    console.log(`[REPAIR] Repaired ${repairedSales} sales and ${repairedExpenses} expenses.`);
+                }
+            } catch (err) {
+                console.error("Data repair failed:", err);
+            }
+        };
+
+        repairDates();
     }, []);
 
     return (
