@@ -33,6 +33,7 @@ export interface Sale {
     items: CartItem[];
     paymentMethod?: 'cash' | 'card' | 'qr';
     shippingCost?: number;
+    synced?: boolean;
 }
 
 export interface Expense {
@@ -95,6 +96,11 @@ export class POSDatabase extends Dexie {
             layaways: '++id, customerName, status, createdAt',
             stock_movements: '++id, productId, type, timestamp',
             settings: 'key'
+        });
+
+        // Version 5: Add synced index to sales
+        this.version(5).stores({
+            sales: '++id, timestamp, salespersonId, synced'
         });
     }
 }

@@ -212,21 +212,23 @@ export const POSPage = () => {
             try {
                 const { supabase } = await import('../db/supabase');
                 if (supabase) {
-                    // @ts-ignore
+                    // Use the original sale timestamp for consistency
+                    // We send the ISO string directly, assuming Supabase handles it as UTC
                     const { error } = await supabase.from('sales').insert([{
                         total,
                         shipping_cost: shippingCost,
                         salesperson_name: currentUser.name,
                         payment_method: method,
                         items: cart,
-                        timestamp: (() => {
-                            const d = new Date();
-                            const offset = d.getTimezoneOffset() * 60000;
-                            return new Date(d.getTime() - offset).toISOString();
-                        })()
+                        timestamp: sale.timestamp.toISOString()
                     }]);
 
-                    if (error) console.error("Error syncing to cloud:", error);
+                    if (error) {
+                        console.error("Error syncing to cloud:", error);
+                    } else {
+                        // If sync successful, mark as synced in local DB
+                        await db.sales.update(id, { synced: true });
+                    }
                 }
             } catch (err) {
                 console.error("Cloud sync failed:", err);
