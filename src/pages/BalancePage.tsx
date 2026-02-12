@@ -137,12 +137,12 @@ export const BalancePage = () => {
 
     const sales = useLiveQuery(async () => {
         if (!startDate || !endDate) return [];
-        return await db.sales.where('timestamp').between(startDate, endDate).reverse().toArray();
+        return await db.sales.where('timestamp').between(startDate, endDate, true, true).reverse().toArray();
     }, [startDate, endDate]);
 
     const expenses = useLiveQuery(async () => {
         if (!startDate || !endDate) return [];
-        return await db.expenses.where('timestamp').between(startDate, endDate).reverse().toArray();
+        return await db.expenses.where('timestamp').between(startDate, endDate, true, true).reverse().toArray();
     }, [startDate, endDate]);
 
     const totalSales = sales?.reduce((sum, sale) => sum + sale.total, 0) || 0;
