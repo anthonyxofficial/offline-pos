@@ -1214,6 +1214,36 @@ export const BalancePage = () => {
                     </div>
                 </div>
             </div>
+
+            {/* CLOUD DIAGNOSTIC (ADMIN ONLY) */}
+            <div className="max-w-7xl mx-auto px-6 pb-20">
+                <div className="bg-blue-900/10 border border-blue-900/30 rounded-3xl p-6">
+                    <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                            <div className="p-3 bg-blue-500/10 rounded-xl text-blue-400">
+                                <Cloud size={24} />
+                            </div>
+                            <div>
+                                <h3 className="text-xl font-black text-white">Sincronización Nube</h3>
+                                <p className="text-blue-200 text-xs">Diagnóstico y Descarga de Datos</p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={handleForceSync}
+                            disabled={isSyncing}
+                            className={`px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-2 transition-all ${isSyncing ? 'bg-zinc-700 text-zinc-500' : 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-500/20'}`}
+                        >
+                            {isSyncing ? <RefreshCw className="animate-spin" size={18} /> : <Database size={18} />}
+                            {isSyncing ? 'Sincronizando...' : 'Forzar Descarga'}
+                        </button>
+                    </div>
+                    {syncLog && (
+                        <div className={`p-3 rounded-xl text-xs font-mono font-bold break-all whitespace-pre-wrap ${syncLog.includes('Error') ? 'bg-red-500/20 text-red-300 border border-red-500/30' : 'bg-green-500/20 text-green-300 border border-green-500/30'}`}>
+                            {syncLog}
+                        </div>
+                    )}
+                </div>
+            </div>
         </div>
     );
 };
