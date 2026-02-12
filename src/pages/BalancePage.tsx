@@ -149,8 +149,12 @@ export const BalancePage = () => {
         return await db.expenses.where('timestamp').between(startDate, endDate, true, true).reverse().toArray();
     }, [startDate, endDate]);
 
-    const totalSales = sales?.reduce((sum, sale) => sum + sale.total, 0) || 0;
-    const totalExpenses = expenses?.reduce((sum, exp) => sum + exp.amount, 0) || 0;
+    const totalSales = sales?.reduce((sum, sale) => {
+        const saleTotal = Number(sale.total) || 0;
+        console.log(`[BALANCE DEBUG] Sale #${sale.id}: total=${sale.total}, converted=${saleTotal}`);
+        return sum + saleTotal;
+    }, 0) || 0;
+    const totalExpenses = expenses?.reduce((sum, exp) => sum + (Number(exp.amount) || 0), 0) || 0;
     const netProfit = totalSales - totalExpenses;
 
     console.log(`[BALANCE DEBUG] Calculations: Sales=${totalSales}, Expenses=${totalExpenses}, Profit=${netProfit}`);
