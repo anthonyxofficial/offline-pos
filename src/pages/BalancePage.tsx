@@ -137,7 +137,11 @@ export const BalancePage = () => {
 
     const sales = useLiveQuery(async () => {
         if (!startDate || !endDate) return [];
-        return await db.sales.where('timestamp').between(startDate, endDate, true, true).reverse().toArray();
+        const result = await db.sales.where('timestamp').between(startDate, endDate, true, true).reverse().toArray();
+        console.log(`[BALANCE DEBUG] Sales Query: Found ${result.length} sales`);
+        console.log(`[BALANCE DEBUG] Date Range: ${startDate} to ${endDate}`);
+        console.log(`[BALANCE DEBUG] Sales:`, result);
+        return result;
     }, [startDate, endDate]);
 
     const expenses = useLiveQuery(async () => {
@@ -148,6 +152,8 @@ export const BalancePage = () => {
     const totalSales = sales?.reduce((sum, sale) => sum + sale.total, 0) || 0;
     const totalExpenses = expenses?.reduce((sum, exp) => sum + exp.amount, 0) || 0;
     const netProfit = totalSales - totalExpenses;
+
+    console.log(`[BALANCE DEBUG] Calculations: Sales=${totalSales}, Expenses=${totalExpenses}, Profit=${netProfit}`);
 
     // Analytics - Existing
     const brandSales: Record<string, number> = {};
