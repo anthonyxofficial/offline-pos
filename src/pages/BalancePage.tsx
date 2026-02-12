@@ -2,7 +2,8 @@
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, type User } from '../db/db';
-import { Download, Trash2, Shield, UserPlus, Activity, Lock, RefreshCw, MapPin, Settings, Upload, QrCode, Banknote, CreditCard, History, Calendar as CalendarIcon } from 'lucide-react';
+import { supabase, syncAllData } from '../db/supabase';
+import { Download, Trash2, Shield, UserPlus, Activity, Lock, RefreshCw, MapPin, Settings, Upload, QrCode, Banknote, CreditCard, History, Calendar as CalendarIcon, Cloud, Database } from 'lucide-react';
 import { usePOS } from '../context/POSContext';
 import { ReportService } from '../services/ReportService';
 
@@ -133,6 +134,37 @@ export const BalancePage = () => {
         await db.table('settings').put({ key: 'supabase_key', value: supabaseKey });
         alert('✅ Configuración de Supabase guardada. Reiniciando para conectar...');
         window.location.reload();
+    };
+
+    const [isSyncing, setIsSyncing] = useState(false);
+    const [syncLog, setSyncLog] = useState<string>('');
+
+    const handleForceSync = async () => {
+        if (!confirm('¿Estás seguro de forzar la sincronización? Esto descargará datos de la nube.')) return;
+
+        setIsSyncing(true);
+        setSyncLog('⏳ Conectando con Supabase...');
+        try {
+            if (!supabase) {
+                setSyncLog('❌ Error: Supabase no inicializado. Revisa la configuración.');
+                return;
+            }
+
+            // Check connection first
+            const { count, error } = await supabase.from('sales').select('*', { count: 'exact', head: true });
+            if (error) throw error;
+
+            setSyncLog(`✅ Conexión Exitosa. Ventas en Nube: ${count}. Sincronizando...`);
+
+            await syncAllData();
+            setSyncLog('✅ Sincronización Completada. Recargando...');
+            setTimeout(() => window.location.reload(), 1000);
+        } catch (err: any) {
+            console.error(err);
+            setSyncLog(`❌ Error: ${err.message}`);
+        } finally {
+            setIsSyncing(false);
+        }
     };
 
     const sales = useLiveQuery(async () => {
