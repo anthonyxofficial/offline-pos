@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, type User } from '../db/db';
-import { Download, Trash2, Search, Filter, Calendar, TrendingUp, TrendingDown, DollarSign, Package, Users, Shield, UserPlus, Activity, Lock, RefreshCw, Smartphone, MapPin } from 'lucide-react';
+import { Download, Trash2, Shield, UserPlus, Activity, Lock, RefreshCw, MapPin, Settings, Upload, QrCode, Banknote, CreditCard, History, Calendar as CalendarIcon } from 'lucide-react';
 import { usePOS } from '../context/POSContext';
 import { ReportService } from '../services/ReportService';
 
