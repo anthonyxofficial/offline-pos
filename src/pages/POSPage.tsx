@@ -153,7 +153,10 @@ export const POSPage = () => {
                 paymentMethod: method as 'cash' | 'card' | 'qr'
             };
 
+            console.log("Attempting to save sale:", sale);
             const id = await db.sales.add(sale);
+            console.log("Sale saved with ID:", id);
+            alert("✅ Venta registrada correctamente"); // Temporary explicit confirmation
             const savedSale = { ...sale, id: id as number };
 
             // Update Stock & Record Movement via Service
@@ -235,8 +238,8 @@ export const POSPage = () => {
             }
 
         } catch (error) {
-            console.error("Error procesando la venta:", error);
-            alert('Ocurrió un error al procesar la venta. Intente de nuevo.');
+            console.error("CRITICAL ERROR: Failed to process sale", error);
+            alert(`❌ ERROR CRÍTICO: No se pudo registrar la venta.\n\nDetalle: ${error instanceof Error ? error.message : String(error)}`);
         }
     };
 
