@@ -1,384 +1,87 @@
 ﻿import { useState, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db, type User } from '../db/db';
-import { supabase, syncAllData } from '../db/supabase';
-import { Download, Trash2, Shield, UserPlus, Activity, Lock, RefreshCw, MapPin, Settings, Upload, QrCode, Banknote, CreditCard, History, Calendar as CalendarIcon, Cloud, Database } from 'lucide-react';
+import { db } from '../db/db';
+import { syncAllData } from '../db/supabase';
+import {
+    Download,
+    Trash2,
+    Shield,
+    UserPlus,
+    Activity as ActivityIcon,
+    Lock,
+    RefreshCw,
+    MapPin,
+    // Settings,
+    // Upload,
+    QrCode,
+    Banknote,
+    CreditCard,
+    History as HistoryIcon,
+    Calendar as CalendarIcon,
+    Cloud,
+    Database
+} from 'lucide-react';
 import { usePOS } from '../context/POSContext';
 import { ReportService } from '../services/ReportService';
 import { formatTime } from '../utils/dateUtils';
 
 export const BalancePage = () => {
     const { currentUser } = usePOS();
-    // ... existing date state ...
-
-    const users = useLiveQuery(() => db.users.toArray());
-    const [newUser, setNewUser] = useState<User>({ name: '', pin: '', role: 'sales' });
+    const [startDate, setStartDate] = useState<Date>(new Date());
+    const [endDate, setEndDate] = useState<Date>(new Date());
+    const [customDate, setCustomDate] = useState(new Date().toISOString().split('T')[0]);
     const [showUserAuth, setShowUserAuth] = useState(false);
-
-    const handleAddUser = async () => {
-        if (!newUser.name || !newUser.pin) return alert('Nombre y PIN requeridos');
-        if (newUser.pin.length < 4) return alert('El PIN debe tener 4 dÃ­gitos');
-
-        await db.users.add(newUser);
-        setNewUser({ name: '', pin: '', role: 'sales' });
-        alert('Usuario agregado exitosamente');
-    };
-
-    const handleDeleteUser = async (id: number) => {
-        if (id === currentUser?.id) return alert('No puedes eliminar tu propio usuario');
-        if (confirm('Â¿EstÃ¡s seguro de eliminar este usuario?')) {
-            await db.users.delete(id);
-        }
-    };
-
-    // ... rest of the component ...
-
-    // Insert the User Management Section somewhere appropriate, e.g., after the charts or settings
-    // For now, I'll provide a block that can be inserted. 
-    // Wait, replace_file_content is for replacing existing content. I need to be careful.
-    // I should probably use `view_file` again to find a good insertion point if I want to append.
-    // Or I can rewrite the top part to include the imports and state, and then use another call to append the UI.
-    // Date & Range Logic
-    const [filterType, setFilterType] = useState<'daily' | 'weekly' | 'biweekly' | 'monthly'>('daily');
-    const [customDate, setCustomDate] = useState(() => {
-        const d = new Date();
-        const year = d.getFullYear();
-        const month = String(d.getMonth() + 1).padStart(2, '0');
-        const day = String(d.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
-    });
-
-    const getRange = (dateStr: string, type: typeof filterType) => {
-        const [y, m, d] = dateStr.split('-').map(Number);
-        const reference = new Date(y, m - 1, d);
-        let start = new Date(reference);
-        let end = new Date(reference);
-
-        switch (type) {
-            case 'daily':
-                start.setHours(0, 0, 0, 0);
-                end.setHours(23, 59, 59, 999);
-                break;
-            case 'weekly':
-                // Adjust to Monday - Sunday
-                const day = start.getDay();
-                const diff = start.getDate() - day + (day === 0 ? -6 : 1);
-                start.setDate(diff);
-                start.setHours(0, 0, 0, 0);
-
-                end = new Date(start);
-                end.setDate(start.getDate() + 6);
-                end.setHours(23, 59, 59, 999);
-                break;
-            case 'biweekly':
-                if (reference.getDate() <= 15) {
-                    start.setDate(1);
-                    end.setDate(15);
-                } else {
-                    start.setDate(16);
-                    end = new Date(y, m, 0); // Last day of month
-                }
-                start.setHours(0, 0, 0, 0);
-                end.setHours(23, 59, 59, 999);
-                break;
-            case 'monthly':
-                start.setDate(1);
-                end = new Date(y, m, 0);
-                start.setHours(0, 0, 0, 0);
-                end.setHours(23, 59, 59, 999);
-                break;
-        }
-        return { start, end };
-    };
-
-    const { start: startDate, end: endDate } = getRange(customDate, filterType);
-
-    if (currentUser?.role !== 'admin') {
-        return (
-            <div className="h-full flex flex-col items-center justify-center text-center p-6 bg-zinc-950">
-                <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center text-red-500 mb-6">
-                    <Settings size={40} />
-                </div>
-                <h2 className="text-2xl font-black text-white mb-2">Acceso Denegado</h2>
-                <p className="text-zinc-400 max-w-sm">
-                    Lo sentimos, solo el administrador (Anthony) tiene permiso para ver las finanzas y el balance del negocio.
-                </p>
-            </div>
-        );
-    }
-    const [showSettings, setShowSettings] = useState(false);
-    const [whatsappNumber, setWhatsappNumber] = useState('');
-    const [supabaseUrl, setSupabaseUrl] = useState('');
-    const [supabaseKey, setSupabaseKey] = useState('');
-    const [expenseAmount, setExpenseAmount] = useState('');
-    const [expenseDesc, setExpenseDesc] = useState('');
-
-    useLiveQuery(async () => {
-        const wa = await db.table('settings').get('whatsapp_number');
-        if (wa) setWhatsappNumber(wa.value);
-
-        const url = await db.table('settings').get('supabase_url');
-        if (url) setSupabaseUrl(url.value);
-
-        const key = await db.table('settings').get('supabase_key');
-        if (key) setSupabaseKey(key.value);
-    }, []);
-
-    const saveWhatsappNumber = async () => {
-        await db.table('settings').put({ key: 'whatsapp_number', value: whatsappNumber });
-        alert('âœ… NÃºmero de WhatsApp guardado');
-    };
-
-    const saveSupabaseConfig = async () => {
-        await db.table('settings').put({ key: 'supabase_url', value: supabaseUrl });
-        await db.table('settings').put({ key: 'supabase_key', value: supabaseKey });
-        alert('âœ… ConfiguraciÃ³n de Supabase guardada. Reiniciando para conectar...');
-        window.location.reload();
-    };
-
+    const [newUser, setNewUser] = useState({ name: '', pin: '', role: 'sales' as 'admin' | 'sales' });
     const [isSyncing, setIsSyncing] = useState(false);
     const [syncLog, setSyncLog] = useState<string>('');
     const [localCount, setLocalCount] = useState<number>(0);
+    const [debugMode, setDebugMode] = useState(false);
+    const [debugSales, setDebugSales] = useState<any[]>([]);
 
     useEffect(() => {
         db.sales.count().then(setLocalCount);
     }, []);
 
+    // Debug fetcher
+    useEffect(() => {
+        if (debugMode) {
+            db.sales.toArray().then(all => {
+                // Show last 5 sales raw
+                setDebugSales(all.reverse().slice(0, 5));
+            });
+        }
+    }, [debugMode]);
+
     const handleForceSync = async () => {
-        if (!confirm('Â¿EstÃ¡s seguro de forzar la sincronizaciÃ³n? Esto descargarÃ¡ datos de la nube.')) return;
+        if (!confirm('¿Estás seguro de forzar la sincronización? Esto descargará datos de la nube.')) return;
 
         setIsSyncing(true);
-        setSyncLog('â³ Conectando con Supabase...');
+        setSyncLog('⏳ Iniciando sincronización forzada...');
         try {
-            if (!supabase) {
-                setSyncLog('âŒ Error: Supabase no inicializado. Revisa la configuraciÃ³n.');
-                return;
-            }
-
-            // Check connection first
-            const { count, error } = await supabase.from('sales').select('*', { count: 'exact', head: true });
-            if (error) throw error;
-
-            setSyncLog(`âœ… ConexiÃ³n Exitosa. Ventas en Nube: ${count}. Sincronizando...`);
-
             await syncAllData();
             const newCount = await db.sales.count();
             setLocalCount(newCount);
-            setSyncLog('âœ… SincronizaciÃ³n Completada. Recargando...');
+            setSyncLog('✅ Sincronización Completada. Recargando...');
             setTimeout(() => window.location.reload(), 1000);
-        } catch (err: any) {
-            console.error(err);
-            setSyncLog(`âŒ Error: ${err.message}`);
+        } catch (error: any) {
+            console.error('Sync Error:', error);
+            setSyncLog(`❌ Error: ${error.message || 'Desconocido'}`);
         } finally {
             setIsSyncing(false);
         }
     };
 
-    const sales = useLiveQuery(async () => {
-        if (!startDate || !endDate) return [];
-
-        console.log(`[BALANCE QUERY] Rango:`, startDate, endDate);
-
-        // MODO FUERZA BRUTA: Traer todo y filtrar en memoria
-        const allSales = await db.sales.toArray();
-        console.log(`[BALANCE DEBUG] Total en BD: ${allSales.length}`);
-
-        const result = allSales.filter(sale => {
-            const saleDate = new Date(sale.timestamp);
-            if (isNaN(saleDate.getTime())) return false;
-            return saleDate >= startDate && saleDate <= endDate;
-        }).sort((a, b) => b.id! - a.id!);
-
-        console.log(`[BALANCE DEBUG] Filtradas: ${result.length}`);
-
-        if (result.length === 0 && allSales.length > 0) {
-            console.log("[DEBUG] Primera venta BD:", new Date(allSales[0].timestamp));
-            console.log("[DEBUG] Rango:", startDate, endDate);
+    // Calculate start and end of selected day (local time)
+    useEffect(() => {
+        if (customDate) {
+            const [year, month, day] = customDate.split('-').map(Number);
+            const start = new Date(year, month - 1, day, 0, 0, 0, 0);
+            const end = new Date(year, month - 1, day, 23, 59, 59, 999);
+            setStartDate(start);
+            setEndDate(end);
         }
+    }, [customDate]);
 
-        return result;
-    }, [startDate, endDate]);
-
-    const expenses = useLiveQuery(async () => {
-        if (!startDate || !endDate) return [];
-
-        const allExpenses = await db.expenses.toArray();
-        return allExpenses.filter(exp => {
-            const expDate = new Date(exp.timestamp);
-            if (isNaN(expDate.getTime())) return false;
-            return expDate >= startDate && expDate <= endDate;
-        }).sort((a, b) => b.id! - a.id!);
-    }, [startDate, endDate]);
-
-    const totalSales = sales?.reduce((sum, sale) => {
-        const saleTotal = Number(sale.total) || 0;
-        console.log(`[BALANCE DEBUG] Sale #${sale.id}: total=${sale.total}, converted=${saleTotal}`);
-        return sum + saleTotal;
-    }, 0) || 0;
-    const totalExpenses = expenses?.reduce((sum, exp) => sum + (Number(exp.amount) || 0), 0) || 0;
-    const netProfit = totalSales - totalExpenses;
-
-    console.log(`[BALANCE DEBUG] Calculations: Sales=${totalSales}, Expenses=${totalExpenses}, Profit=${netProfit}`);
-
-    // Analytics - Existing
-    const brandSales: Record<string, number> = {};
-    const sizeSales: Record<string, number> = {};
-
-    // NEW: Advanced Analytics
-    const productSales: Record<string, { name: string; quantity: number; revenue: number }> = {};
-    const sellerPerformance: Record<string, { name: string; sales: number; transactions: number }> = {};
-
-    sales?.forEach(sale => {
-        // Seller stats
-        const sellerName = sale.salespersonName || 'Sin Vendedor';
-        if (!sellerPerformance[sellerName]) {
-            sellerPerformance[sellerName] = { name: sellerName, sales: 0, transactions: 0 };
-        }
-        sellerPerformance[sellerName].sales += sale.total;
-        sellerPerformance[sellerName].transactions += 1;
-
-        sale.items.forEach(item => {
-            const brand = item.brand || 'Otras';
-            const size = item.size ? item.size.toString() : 'N/A';
-            brandSales[brand] = (brandSales[brand] || 0) + item.quantity;
-            sizeSales[size] = (sizeSales[size] || 0) + item.quantity;
-
-            // Product stats
-            const productKey = item.name;
-            if (!productSales[productKey]) {
-                productSales[productKey] = { name: item.name, quantity: 0, revenue: 0 };
-            }
-            productSales[productKey].quantity += item.quantity;
-            productSales[productKey].revenue += item.price * item.quantity;
-        });
-    });
-
-    const topBrands = Object.entries(brandSales).sort((a, b) => b[1] - a[1]).slice(0, 5);
-    const topSizes = Object.entries(sizeSales).sort((a, b) => b[1] - a[1]).slice(0, 5);
-
-    // NEW: Top products by quantity and revenue
-    const topProductsByRevenue = Object.values(productSales).sort((a, b) => b.revenue - a.revenue).slice(0, 5);
-
-    // NEW: Seller ranking
-    const sellerRanking = Object.values(sellerPerformance).sort((a, b) => b.sales - a.sales);
-    const avgTicket = sales && sales.length > 0 ? totalSales / sales.length : 0;
-
-    // NEW: Low stock products query
-    const allProducts = useLiveQuery(() => db.products.toArray(), []);
-    const lowStockProducts = allProducts?.filter(p => (p.stock ?? 0) <= 2) || [];
-
-    // NEW: Dormant products (not sold on selected date)
-    const soldProductNames = new Set(Object.keys(productSales));
-    const dormantProducts = allProducts?.filter(p => !soldProductNames.has(p.name)) || [];
-
-    const handleAddExpense = async () => {
-        if (!expenseAmount || !expenseDesc) return;
-        await db.expenses.add({
-            amount: parseFloat(expenseAmount),
-            description: expenseDesc,
-            timestamp: new Date(),
-            salespersonId: 0
-        });
-        setExpenseAmount('');
-        setExpenseDesc('');
-    };
-
-    // Breakdown
-    const cashTotal = sales?.filter(s => s.paymentMethod === 'cash').reduce((sum, s) => sum + s.total, 0) || 0;
-    const cardTotal = sales?.filter(s => s.paymentMethod === 'card').reduce((sum, s) => sum + s.total, 0) || 0;
-    const qrTotal = sales?.filter(s => s.paymentMethod === 'qr').reduce((sum, s) => sum + s.total, 0) || 0;
-
-    const handleExport = async () => {
-        const products = await db.products.toArray();
-        const salesData = await db.sales.toArray();
-        const users = await db.users.toArray();
-        const expensesData = await db.expenses.toArray();
-
-        const data = { products, sales: salesData, users, expenses: expensesData, version: '1.0', timestamp: new Date().toISOString() };
-        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `pos-backup-${new Date().toISOString().split('T')[0]}.json`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-    };
-
-
-
-    // ... existing imports ...
-
-    const handleExportPDF = async () => {
-        if (!sales || !expenses) return;
-
-        await ReportService.generateBalancePDF({
-            startDate,
-            endDate,
-            sales,
-            expenses,
-            totalSales,
-            totalExpenses,
-            netProfit
-        });
-    };
-
-    const handleExportExcel = async () => {
-        if (!sales || !expenses) return;
-
-        await ReportService.generateBalanceExcel({
-            startDate,
-            endDate,
-            sales,
-            expenses,
-            totalSales,
-            totalExpenses,
-            netProfit
-        });
-    };
-
-    const handlePrint = () => {
-        window.print();
-    };
-
-    const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-
-        if (!confirm('Esta acciÃ³n reemplazarÃ¡ todos los datos actuales. Â¿Deseas continuar?')) return;
-
-        const reader = new FileReader();
-        reader.onload = async (event) => {
-            try {
-                const data = JSON.parse(event.target?.result as string);
-                if (data.products) {
-                    await db.products.clear();
-                    await db.products.bulkAdd(data.products);
-                }
-                if (data.sales) {
-                    await db.sales.clear();
-                    const formattedSales = data.sales.map((s: any) => ({ ...s, timestamp: new Date(s.timestamp) }));
-                    await db.sales.bulkAdd(formattedSales);
-                }
-                if (data.users) {
-                    await db.users.clear();
-                    await db.users.bulkAdd(data.users);
-                }
-                if (data.expenses) {
-                    await db.expenses.clear();
-                    const formattedExp = data.expenses.map((e: any) => ({ ...e, timestamp: new Date(e.timestamp) }));
-                    await db.expenses.bulkAdd(formattedExp);
-                }
-                alert('âœ… Datos importados correctamente');
-                window.location.reload();
-            } catch (err) {
-                console.error(err);
-                alert('âŒ Error al importar el archivo. Formato no vÃ¡lido.');
-            }
-        };
-        reader.readAsText(file);
-    };
 
     const setToday = () => {
         // Use standard date formatter to get local YYYY-MM-DD
@@ -390,433 +93,241 @@ export const BalancePage = () => {
         setCustomDate(`${year}-${month}-${day}`);
     };
 
+    const users = useLiveQuery(() => db.users.toArray());
+
+    const sales = useLiveQuery(async () => {
+        if (!startDate || !endDate) return [];
+        const allSales = await db.sales.toArray();
+        return allSales.filter(sale => {
+            const saleDate = new Date(sale.timestamp);
+            if (isNaN(saleDate.getTime())) return false;
+            return saleDate >= startDate && saleDate <= endDate;
+        }).sort((a, b) => b.id! - a.id!);
+    }, [startDate, endDate]);
+
+    const expenses = useLiveQuery(async () => {
+        if (!startDate || !endDate) return [];
+        const allExpenses = await db.expenses.toArray();
+        return allExpenses.filter(expense => {
+            const expenseDate = new Date(expense.timestamp);
+            if (isNaN(expenseDate.getTime())) return false;
+            return expenseDate >= startDate && expenseDate <= endDate;
+        }).sort((a, b) => b.id! - a.id!);
+    }, [startDate, endDate]);
+
+    const totalSales = sales?.reduce((sum, sale) => sum + sale.total, 0) || 0;
+    const totalExpenses = expenses?.reduce((sum, expense) => sum + expense.amount, 0) || 0;
+    const netProfit = totalSales - totalExpenses;
+
+    const handleAddUser = async () => {
+        if (!newUser.name || !newUser.pin || newUser.pin.length !== 4) {
+            alert('Por favor complete todos los campos correctamente. El PIN debe ser de 4 dígitos.');
+            return;
+        }
+        await db.users.add({
+            name: newUser.name,
+            pin: newUser.pin,
+            role: newUser.role,
+            lastActive: new Date()
+        });
+        setNewUser({ name: '', pin: '', role: 'sales' });
+        alert('Usuario creado exitosamente');
+    };
+
+    const handleDeleteUser = async (id: number) => {
+        if (id === currentUser?.id) {
+            alert('No puedes eliminar tu propio usuario mientras estás conectado.');
+            return;
+        }
+        if (confirm('¿Estás seguro de eliminar este usuario?')) {
+            await db.users.delete(id);
+        }
+    };
+
+    const handleExportPDF = () => {
+        if (!sales || !expenses) return;
+        ReportService.generateBalancePDF({
+            startDate,
+            endDate,
+            sales,
+            expenses,
+            totalSales,
+            totalExpenses,
+            netProfit
+        });
+    };
+
+    const handleExportExcel = () => {
+        if (!sales || !expenses) return;
+        ReportService.generateBalanceExcel({
+            startDate,
+            endDate,
+            sales,
+            expenses,
+            totalSales,
+            totalExpenses,
+            netProfit
+        });
+    };
+
+    // Analytics: Dormant Products
+    const dormantProducts = useLiveQuery(async () => {
+        const allProducts = await db.products.toArray();
+        const soldProductIds = new Set<number>();
+
+        if (sales) {
+            sales.forEach(sale => {
+                sale.items.forEach(item => soldProductIds.add(item.id!));
+            });
+        }
+
+        return allProducts.filter(p => !soldProductIds.has(p.id!));
+    }, [sales]);
+
+    // Analytics: Top Products
+    const topProducts = useLiveQuery(async () => {
+        const productMap = new Map<string, number>();
+        if (sales) {
+            sales.forEach(sale => {
+                sale.items.forEach(item => {
+                    const current = productMap.get(item.name) || 0;
+                    productMap.set(item.name, current + item.quantity);
+                });
+            });
+        }
+        return Array.from(productMap.entries())
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 5);
+    }, [sales]);
+
+    if (currentUser?.role !== 'admin') {
+        return (
+            <div className="h-screen flex items-center justify-center text-white">
+                <div className="text-center">
+                    <Lock size={64} className="mx-auto text-zinc-600 mb-4" />
+                    <h2 className="text-2xl font-bold">Acceso Restringido</h2>
+                    <p className="text-zinc-400">Solo administradores pueden ver el balance.</p>
+                </div>
+            </div>
+        )
+    }
+
+    if (!dormantProducts || !topProducts) return null;
+
     return (
-        <div className="pb-20">
-            {/* VISTA WEB / MÃ“VIL (NO-PRINT) */}
-            <div className="no-print space-y-6">
-                {/* Header - Mobile Optimized */}
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center sticky top-0 bg-zinc-950/80 backdrop-blur-sm z-10 py-3 gap-3">
-                    <div className="flex-shrink-0">
-                        <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">Balance</h2>
-                        <p className="text-zinc-400 text-xs sm:text-sm italic hidden sm:block">Control de ventas y gastos diarios</p>
+        <div className="pb-20 pt-6"> {/* Added top padding for better mobile view */}
+            {/* Header / Date Selector */}
+            <div className="max-w-7xl mx-auto px-6 mb-8 flex flex-col md:flex-row justify-between items-center gap-4">
+                <div>
+                    <span className="text-zinc-500 font-bold text-xs uppercase tracking-wider mb-1 block">
+                        Estados Financieros
+                    </span>
+                    <h1 className="text-3xl font-black text-white tracking-tight">Balance General</h1>
+                </div>
+
+                <div className="flex items-center gap-3 bg-zinc-900/50 p-2 rounded-2xl border border-zinc-800">
+                    <button
+                        onClick={setToday}
+                        className="p-3 hover:bg-zinc-800 text-zinc-400 hover:text-white rounded-xl transition-all"
+                        title="Hoy"
+                    >
+                        <CalendarIcon size={20} />
+                    </button>
+                    <input
+                        type="date"
+                        value={customDate}
+                        onChange={(e) => setCustomDate(e.target.value)}
+                        className="bg-transparent text-white font-bold text-lg outline-none px-2"
+                    />
+                </div>
+            </div>
+
+            {/* Main Stats Grid */}
+            <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+                <div className="bg-zinc-900/50 p-6 rounded-3xl border border-zinc-800 backdrop-blur-sm relative overflow-hidden group hover:border-zinc-700 transition-all">
+                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                        <Banknote size={80} className="text-emerald-500" />
                     </div>
-                    <div className="flex gap-1.5 sm:gap-2 w-full sm:w-auto justify-end">
-                        <button
-                            onClick={handleExportPDF}
-                            className="bg-red-900/50 text-red-200 px-2.5 sm:px-4 py-2 rounded-xl flex items-center gap-1 sm:gap-2 hover:bg-red-900/80 border border-red-900/50 transition-all font-bold text-xs sm:text-sm"
-                        >
-                            <Download size={16} className="sm:w-[18px] sm:h-[18px]" />
-                            <span className="hidden sm:inline">PDF</span>
-                        </button>
-                        <button
-                            onClick={handleExportExcel}
-                            className="bg-emerald-900/50 text-emerald-200 px-2.5 sm:px-4 py-2 rounded-xl flex items-center gap-1 sm:gap-2 hover:bg-emerald-900/80 border border-emerald-900/50 transition-all font-bold text-xs sm:text-sm"
-                        >
-                            <Download size={16} className="sm:w-[18px] sm:h-[18px]" />
-                            <span className="hidden sm:inline">Excel</span>
-                        </button>
-                        <button
-                            onClick={handlePrint}
-                            className="bg-zinc-900 text-zinc-300 px-2.5 sm:px-4 py-2 rounded-xl flex items-center gap-1 sm:gap-2 hover:bg-zinc-800 border border-zinc-800 transition-all font-bold text-xs sm:text-sm"
-                        >
-                            <History size={16} className="sm:w-[18px] sm:h-[18px]" />
-                            <span className="hidden sm:inline">Imprimir</span>
-                        </button>
-                        <button
-                            onClick={() => setShowSettings(!showSettings)}
-                            className="p-2 sm:p-3 bg-zinc-900 text-zinc-400 rounded-xl hover:bg-zinc-800 border border-zinc-800 transition-all"
-                        >
-                            <Settings size={18} className="sm:w-[20px] sm:h-[20px]" />
-                        </button>
+                    <p className="text-zinc-400 text-xs font-bold uppercase tracking-widest mb-2">Ingresos por Ventas</p>
+                    <p className="text-4xl font-black text-white tracking-tight">L {totalSales.toLocaleString('es-HN', { minimumFractionDigits: 2 })}</p>
+                    <div className="mt-4 flex items-center gap-2 text-emerald-400 text-xs font-bold bg-emerald-500/10 w-fit px-3 py-1.5 rounded-full">
+                        <ActivityIcon size={14} />
+                        <span>{sales?.length} transacciones</span>
                     </div>
                 </div>
 
-                {/* Settings / Backup Section */}
-                {showSettings && (
-                    <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-3xl animate-fade-in space-y-4 shadow-2xl">
-                        <div className="flex items-center gap-2 mb-2">
-                            <History size={18} className="text-zinc-500" />
-                            <h3 className="font-bold text-white uppercase text-xs tracking-widest">SincronizaciÃ³n Manual</h3>
-                        </div>
-                        <p className="text-zinc-400 text-sm mb-4">Como esta es una App Offline, para pasar tus datos de la PC al Celular debes exportar el archivo aquÃ­ e importarlo en el otro dispositivo.</p>
-                        <div className="grid grid-cols-2 gap-4">
-                            <button
-                                onClick={handleExport}
-                                className="flex flex-col items-center justify-center p-6 bg-zinc-950 border border-zinc-800 rounded-2xl hover:bg-zinc-800 transition-all gap-2 group"
-                            >
-                                <Download size={24} className="text-white group-hover:scale-110 transition-transform" />
-                                <span className="text-xs font-bold text-zinc-300 uppercase">Exportar Datos</span>
-                            </button>
-                            <label className="flex flex-col items-center justify-center p-6 bg-zinc-950 border border-zinc-800 rounded-2xl hover:bg-zinc-800 cursor-pointer transition-all gap-2 group">
-                                <Upload size={24} className="text-white group-hover:scale-110 transition-transform" />
-                                <span className="text-xs font-bold text-zinc-300 uppercase">Importar Datos</span>
-                                <input type="file" accept=".json" onChange={handleImport} className="hidden" />
-                            </label>
-                        </div>
-
-                        <div className="pt-4 border-t border-zinc-800 mt-4">
-                            <div className="flex items-center gap-2 mb-4">
-                                <QrCode size={18} className="text-green-500" />
-                                <h3 className="font-bold text-white uppercase text-xs tracking-widest">Notificaciones WhatsApp</h3>
-                            </div>
-                            <div className="flex gap-2">
-                                <input
-                                    type="text"
-                                    placeholder="NÃºmero (ej. 50499887766)"
-                                    className="flex-1 bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-zinc-500 text-sm"
-                                    value={whatsappNumber}
-                                    onChange={(e) => setWhatsappNumber(e.target.value)}
-                                />
-                                <button
-                                    onClick={saveWhatsappNumber}
-                                    className="px-6 py-3 bg-white text-black rounded-xl font-bold text-sm hover:bg-zinc-200 transition-all active:scale-95"
-                                >
-                                    Guardar
-                                </button>
-                            </div>
-                        </div>
-
-                        <div className="pt-4 border-t border-zinc-800 mt-4 space-y-4">
-                            <div className="flex items-center gap-2 mb-2">
-                                <History size={18} className="text-blue-500" />
-                                <h3 className="font-bold text-white uppercase text-xs tracking-widest">SincronizaciÃ³n en la Nube (Supabase)</h3>
-                            </div>
-                            <div className="space-y-3">
-                                <div>
-                                    <label className="text-[10px] text-zinc-500 uppercase font-bold mb-1 block">Supabase URL</label>
-                                    <input
-                                        type="text"
-                                        placeholder="https://xyz.supabase.co"
-                                        className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-zinc-500 text-sm"
-                                        value={supabaseUrl}
-                                        onChange={(e) => setSupabaseUrl(e.target.value)}
-                                    />
-                                </div>
-                                <div>
-                                    <label className="text-[10px] text-zinc-500 uppercase font-bold mb-1 block">Anon Key</label>
-                                    <input
-                                        type="password"
-                                        placeholder="Tu clave anon public"
-                                        className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-zinc-500 text-sm"
-                                        value={supabaseKey}
-                                        onChange={(e) => setSupabaseKey(e.target.value)}
-                                    />
-                                </div>
-                                <button
-                                    onClick={saveSupabaseConfig}
-                                    className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold text-sm hover:bg-blue-500 transition-all active:scale-95 flex items-center justify-center gap-2"
-                                >
-                                    <History size={18} />
-                                    Conectar y Sincronizar
-                                </button>
-                            </div>
-                        </div>
+                <div className="bg-zinc-900/50 p-6 rounded-3xl border border-zinc-800 backdrop-blur-sm relative overflow-hidden group hover:border-zinc-700 transition-all">
+                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                        <Download size={80} className="text-red-500 rotate-180" />
                     </div>
-                )}
-
-                {/* Main Stats Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {/* Net Utility Card */}
-                    <div className="bg-white p-8 rounded-3xl shadow-2xl flex flex-col justify-between overflow-hidden relative">
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-zinc-100 rounded-full -mr-16 -mt-16 opacity-50 transition-transform hover:scale-110"></div>
-                        <div className="relative z-10">
-                            <div className="flex justify-between items-center mb-6">
-                                <span className="text-zinc-400 text-[10px] font-black uppercase tracking-[0.2em]">Utilidad Neta</span>
-                                <button
-                                    onClick={setToday}
-                                    className="px-2 py-1 bg-zinc-100 text-zinc-900 rounded-lg text-[10px] font-black uppercase hover:bg-zinc-900 hover:text-white transition-all shadow-sm"
-                                >
-                                    Hoy
-                                </button>
-                            </div>
-                            <h3 className={`text-4xl font-black tracking-tight ${netProfit >= 0 ? 'text-black' : 'text-red-500'}`}>
-                                L {netProfit.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                            </h3>
-                            <p className="text-zinc-400 text-[10px] font-bold mt-2 uppercase">Ventas - Gastos</p>
-                        </div>
-                        <div className="mt-6 flex flex-col gap-4">
-                            {/* Filter Logic */}
-                            <div className="flex bg-zinc-100 p-1 rounded-xl">
-                                {(['daily', 'weekly', 'biweekly', 'monthly'] as const).map(type => (
-                                    <button
-                                        key={type}
-                                        onClick={() => setFilterType(type)}
-                                        className={`flex-1 py-1.5 text-[10px] font-black uppercase rounded-lg transition-all ${filterType === type ? 'bg-zinc-900 text-white shadow-md' : 'text-zinc-500 hover:text-zinc-900'}`}
-                                    >
-                                        {type === 'daily' ? 'DÃ­a' : type === 'weekly' ? 'Semana' : type === 'biweekly' ? 'Quincena' : 'Mes'}
-                                    </button>
-                                ))}
-                            </div>
-
-                            <div className="space-y-2">
-                                <div className="flex justify-between items-end">
-                                    <span className="text-zinc-400 text-[10px] font-bold uppercase tracking-widest">
-                                        Fecha de Referencia
-                                    </span>
-                                    <span className="text-[10px] font-bold text-zinc-900 bg-zinc-100 px-2 py-1 rounded-md flex items-center gap-1">
-                                        {startDate.toLocaleDateString()} - {endDate.toLocaleDateString()}
-                                        <span className="text-[8px] text-zinc-400 font-mono ml-1" title="Zona Horaria Local">
-                                            ({Intl.DateTimeFormat().resolvedOptions().timeZone})
-                                        </span>
-                                    </span>
-                                </div>
-                                <div className="relative group flex gap-2">
-                                    <div className="relative flex-1">
-                                        <CalendarIcon size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 group-hover:text-black transition-colors pointer-events-none" />
-                                        <input
-                                            type="date"
-                                            value={customDate}
-                                            onChange={(e) => setCustomDate(e.target.value)}
-                                            className="w-full bg-zinc-50 text-zinc-900 text-sm font-black uppercase pl-10 pr-4 py-3 rounded-xl border border-zinc-100 focus:ring-4 focus:ring-zinc-200 transition-all cursor-pointer shadow-sm"
-                                        />
-                                    </div>
-                                    <button
-                                        onClick={() => window.location.reload()}
-                                        className="bg-zinc-900 text-white p-3 rounded-xl hover:bg-zinc-700 transition-colors shadow-sm"
-                                        title="Recargar Balance"
-                                    >
-                                        <RefreshCw size={20} />
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="col-span-1 md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-6">
-                        {/* Gross Sales */}
-                        <div className="bg-zinc-900 border border-zinc-800 p-8 rounded-3xl flex flex-col justify-between">
-                            <div>
-                                <span className="text-zinc-500 text-[10px] font-black uppercase tracking-[0.2em] block mb-4">Ventas Totales</span>
-                                <h4 className="text-3xl font-black text-white">L {totalSales.toLocaleString()}</h4>
-                            </div>
-                            <div className="mt-6 flex gap-4 border-t border-zinc-800 pt-6">
-                                <div className="flex-1">
-                                    <p className="text-[10px] text-zinc-500 font-bold uppercase mb-1 flex items-center gap-1">
-                                        <Banknote size={10} className="text-green-500" /> Efec
-                                    </p>
-                                    <p className="text-sm font-black text-zinc-300">L {cashTotal.toLocaleString()}</p>
-                                </div>
-                                <div className="flex-1">
-                                    <p className="text-[10px] text-zinc-500 font-bold uppercase mb-1 flex items-center gap-1">
-                                        <CreditCard size={10} className="text-blue-400" /> Tarj
-                                    </p>
-                                    <p className="text-sm font-black text-zinc-300">L {cardTotal.toLocaleString()}</p>
-                                </div>
-                                <div className="flex-1">
-                                    <p className="text-[10px] text-zinc-500 font-bold uppercase mb-1 flex items-center gap-1">
-                                        <QrCode size={10} className="text-purple-400" /> QR
-                                    </p>
-                                    <p className="text-sm font-black text-zinc-300">L {qrTotal.toLocaleString()}</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Expense Registration & Summary */}
-                        <div className="bg-zinc-900/50 border border-zinc-800/50 p-6 rounded-3xl flex flex-col gap-4">
-                            <div className="flex justify-between items-center">
-                                <span className="text-zinc-500 text-[10px] font-black uppercase tracking-[0.2em]">Gastos Operativos</span>
-                                <span className="text-red-400 font-black text-sm">- L {totalExpenses.toLocaleString()}</span>
-                            </div>
-
-                            <div className="space-y-2 mt-2">
-                                <input
-                                    type="number"
-                                    placeholder="Monto (L)"
-                                    value={expenseAmount}
-                                    onChange={(e) => setExpenseAmount(e.target.value)}
-                                    className="w-full bg-zinc-950 border border-zinc-800 px-4 py-2 rounded-xl text-white text-sm focus:outline-none focus:border-zinc-500"
-                                />
-                                <input
-                                    type="text"
-                                    placeholder="Â¿En quÃ© se gastÃ³?"
-                                    value={expenseDesc}
-                                    onChange={(e) => setExpenseDesc(e.target.value)}
-                                    className="w-full bg-zinc-950 border border-zinc-800 px-4 py-2 rounded-xl text-white text-sm focus:outline-none focus:border-zinc-500"
-                                />
-                                <button
-                                    onClick={handleAddExpense}
-                                    className="w-full bg-zinc-100 text-black py-2 rounded-xl text-xs font-black uppercase hover:bg-white active:scale-95 transition-all shadow-lg"
-                                >
-                                    Registrar Gasto
-                                </button>
-                            </div>
-                        </div>
+                    <p className="text-zinc-400 text-xs font-bold uppercase tracking-widest mb-2">Gastos Operativos</p>
+                    <p className="text-4xl font-black text-white tracking-tight">L {totalExpenses.toLocaleString('es-HN', { minimumFractionDigits: 2 })}</p>
+                    <div className="mt-4 flex items-center gap-2 text-red-400 text-xs font-bold bg-red-500/10 w-fit px-3 py-1.5 rounded-full">
+                        <span>{expenses?.length} registros</span>
                     </div>
                 </div>
 
-                {/* Analytics Section */}
+                <div className={`p-6 rounded-3xl border backdrop-blur-sm relative overflow-hidden transition-all ${netProfit >= 0 ? 'bg-gradient-to-br from-indigo-600/20 to-purple-600/20 border-indigo-500/30' : 'bg-red-900/20 border-red-500/30'}`}>
+                    <p className={`text-xs font-bold uppercase tracking-widest mb-2 ${netProfit >= 0 ? 'text-indigo-300' : 'text-red-300'}`}>Utilidad Neta</p>
+                    <p className={`text-4xl font-black tracking-tight ${netProfit >= 0 ? 'text-white' : 'text-red-400'}`}>
+                        L {netProfit.toLocaleString('es-HN', { minimumFractionDigits: 2 })}
+                    </p>
+                    <div className="flex gap-2 mt-4">
+                        <button onClick={handleExportPDF} className="bg-white text-black px-4 py-2 rounded-xl text-xs font-bold hover:bg-gray-200 transition-colors flex items-center gap-2">
+                            <Download size={14} /> PDF
+                        </button>
+                        <button onClick={handleExportExcel} className="bg-green-600 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-green-500 transition-colors flex items-center gap-2">
+                            <Download size={14} /> Excel
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {/* Analytics & History Section */}
+            <div className="max-w-7xl mx-auto px-6 space-y-6 mb-10">
+                {/* Analytics Row */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-3xl">
-                        <div className="flex items-center gap-2 mb-4">
-                            <History size={18} className="text-zinc-500" />
-                            <h3 className="font-bold text-white uppercase text-xs tracking-widest">Lo mÃ¡s vendido (Marcas)</h3>
-                        </div>
+                    <div className="bg-zinc-900/30 rounded-3xl p-6 border border-zinc-800">
+                        <h3 className="font-bold text-zinc-400 uppercase text-xs tracking-widest mb-4 flex items-center gap-2">
+                            <ActivityIcon size={16} className="text-yellow-500" /> Top Productos
+                        </h3>
                         <div className="space-y-3">
-                            {topBrands.length === 0 ? (
-                                <p className="text-zinc-600 text-sm italic">Sin datos de ventas</p>
-                            ) : (
-                                topBrands.map(([brand, count]) => (
-                                    <div key={brand} className="flex items-center justify-between">
-                                        <span className="text-zinc-300 text-sm font-medium">{brand}</span>
-                                        <div className="flex items-center gap-2">
-                                            <div className="h-1.5 w-32 bg-zinc-800 rounded-full overflow-hidden">
-                                                <div
-                                                    className="h-full bg-white transition-all duration-1000"
-                                                    style={{ width: `${(count / (topBrands[0][1] || 1)) * 100}%` }}
-                                                ></div>
-                                            </div>
-                                            <span className="text-white text-xs font-black">{count}</span>
-                                        </div>
-                                    </div>
-                                ))
-                            )}
-                        </div>
-                    </div>
-
-                    <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-3xl">
-                        <div className="flex items-center gap-2 mb-4">
-                            <History size={18} className="text-zinc-500" />
-                            <h3 className="font-bold text-white uppercase text-xs tracking-widest">Tallas mÃ¡s buscadas</h3>
-                        </div>
-                        <div className="space-y-3">
-                            {topSizes.length === 0 ? (
-                                <p className="text-zinc-600 text-sm italic">Sin datos de ventas</p>
-                            ) : (
-                                topSizes.map(([size, count]) => (
-                                    <div key={size} className="flex items-center justify-between">
-                                        <span className="text-zinc-300 text-sm font-medium">Talla {size}</span>
-                                        <div className="flex items-center gap-2">
-                                            <div className="h-1.5 w-32 bg-zinc-800 rounded-full overflow-hidden">
-                                                <div
-                                                    className="h-full bg-blue-500 transition-all duration-1000"
-                                                    style={{ width: `${(count / (topSizes[0][1] || 1)) * 100}%` }}
-                                                ></div>
-                                            </div>
-                                            <span className="text-white text-xs font-black">{count}</span>
-                                        </div>
-                                    </div>
-                                ))
-                            )}
-                        </div>
-                    </div>
-                </div>
-
-                {/* NEW: Advanced Analytics Section */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {/* Top Products by Revenue */}
-                    <div className="bg-gradient-to-br from-emerald-900/20 to-zinc-900 border border-emerald-800/30 p-6 rounded-3xl">
-                        <div className="flex items-center gap-2 mb-4">
-                            <span className="text-lg">ðŸ†</span>
-                            <h3 className="font-bold text-white uppercase text-xs tracking-widest">Top por Ingresos</h3>
-                        </div>
-                        <div className="space-y-3">
-                            {topProductsByRevenue.length === 0 ? (
-                                <p className="text-zinc-600 text-sm italic">Sin ventas hoy</p>
-                            ) : (
-                                topProductsByRevenue.map((product, idx) => (
-                                    <div key={product.name} className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2">
-                                            <span className={`text-xs font-black ${idx === 0 ? 'text-yellow-400' : idx === 1 ? 'text-zinc-400' : idx === 2 ? 'text-amber-600' : 'text-zinc-600'}`}>
-                                                #{idx + 1}
-                                            </span>
-                                            <span className="text-zinc-300 text-sm font-medium truncate max-w-[120px]">{product.name}</span>
-                                        </div>
-                                        <span className="text-emerald-400 text-xs font-black">L {product.revenue.toLocaleString()}</span>
-                                    </div>
-                                ))
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Seller Performance */}
-                    <div className="bg-gradient-to-br from-blue-900/20 to-zinc-900 border border-blue-800/30 p-6 rounded-3xl">
-                        <div className="flex items-center gap-2 mb-4">
-                            <span className="text-lg">ðŸ‘¤</span>
-                            <h3 className="font-bold text-white uppercase text-xs tracking-widest">Rendimiento Vendedor</h3>
-                        </div>
-                        <div className="space-y-3">
-                            {sellerRanking.length === 0 ? (
-                                <p className="text-zinc-600 text-sm italic">Sin ventas hoy</p>
-                            ) : (
-                                sellerRanking.map((seller) => (
-                                    <div key={seller.name} className="p-3 bg-zinc-950/50 rounded-xl border border-zinc-800">
-                                        <div className="flex justify-between items-center mb-2">
-                                            <span className="text-white text-sm font-bold">{seller.name}</span>
-                                            <span className="text-blue-400 text-xs font-black">L {seller.sales.toLocaleString()}</span>
-                                        </div>
-                                        <div className="flex gap-4 text-[10px] text-zinc-500 uppercase">
-                                            <span>{seller.transactions} ventas</span>
-                                            <span>Ticket: L {seller.transactions > 0 ? (seller.sales / seller.transactions).toFixed(0) : 0}</span>
-                                        </div>
-                                    </div>
-                                ))
-                            )}
-                        </div>
-                        {sales && sales.length > 0 && (
-                            <div className="mt-4 pt-4 border-t border-zinc-800">
-                                <div className="flex justify-between text-xs">
-                                    <span className="text-zinc-500 uppercase">Ticket Promedio</span>
-                                    <span className="text-white font-black">L {avgTicket.toFixed(0)}</span>
+                            {topProducts.map(([name, qty], i) => (
+                                <div key={i} className="flex justify-between items-center text-sm">
+                                    <span className="text-zinc-300 font-medium">#{i + 1} {name}</span>
+                                    <span className="font-bold text-white bg-zinc-800 px-2 py-1 rounded-lg">{qty} und.</span>
                                 </div>
-                            </div>
-                        )}
+                            ))}
+                            {topProducts.length === 0 && <p className="text-zinc-600 text-sm italic">Sin datos hoy</p>}
+                        </div>
                     </div>
 
-                    {/* Low Stock Alert */}
-                    <div className={`bg-gradient-to-br ${lowStockProducts.length > 0 ? 'from-red-900/30 to-zinc-900 border-red-800/50' : 'from-zinc-900 to-zinc-900 border-zinc-800'} border p-6 rounded-3xl`}>
-                        <div className="flex items-center gap-2 mb-4">
-                            <span className="text-lg">{lowStockProducts.length > 0 ? 'âš ï¸' : 'âœ…'}</span>
-                            <h3 className="font-bold text-white uppercase text-xs tracking-widest">Stock CrÃ­tico</h3>
-                            {lowStockProducts.length > 0 && (
-                                <span className="ml-auto bg-red-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full animate-pulse">
-                                    {lowStockProducts.length}
-                                </span>
-                            )}
+                    {/* Dormant Products Alert */}
+                    {dormantProducts.length > 0 && (
+                        <div className="bg-zinc-900/30 rounded-3xl p-6 border border-zinc-800">
+                            <div className="flex justify-between items-center mb-4">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-lg">😴</span>
+                                    <h3 className="font-bold text-white uppercase text-xs tracking-widest">Productos Sin Ventas Hoy</h3>
+                                </div>
+                                <span className="text-zinc-500 text-xs">{dormantProducts.length} productos</span>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                                {dormantProducts.slice(0, 10).map((product) => (
+                                    <span key={product.id} className="text-xs bg-zinc-800 text-zinc-400 px-3 py-1.5 rounded-lg border border-zinc-700">
+                                        {product.name}
+                                    </span>
+                                ))}
+                                {dormantProducts.length > 10 && (
+                                    <span className="text-xs bg-zinc-800 text-zinc-500 px-3 py-1.5 rounded-lg">
+                                        +{dormantProducts.length - 10} más
+                                    </span>
+                                )}
+                            </div>
                         </div>
-                        <div className="space-y-2 max-h-[200px] overflow-y-auto">
-                            {lowStockProducts.length === 0 ? (
-                                <p className="text-emerald-500 text-sm font-medium">Â¡Todo el inventario estÃ¡ bien!</p>
-                            ) : (
-                                lowStockProducts.slice(0, 5).map((product) => (
-                                    <div key={product.id} className="flex items-center justify-between p-2 bg-red-950/30 rounded-lg border border-red-900/30">
-                                        <span className="text-zinc-300 text-sm font-medium truncate max-w-[150px]">{product.name}</span>
-                                        <span className={`text-xs font-black ${product.stock === 0 ? 'text-red-400' : 'text-orange-400'}`}>
-                                            {product.stock || 0} pares
-                                        </span>
-                                    </div>
-                                ))
-                            )}
-                            {lowStockProducts.length > 5 && (
-                                <p className="text-zinc-500 text-xs text-center pt-2">+ {lowStockProducts.length - 5} productos mÃ¡s</p>
-                            )}
-                        </div>
-                    </div>
+                    )}
                 </div>
 
-                {/* Dormant Products */}
-                {dormantProducts.length > 0 && (
-                    <div className="bg-zinc-900/50 border border-zinc-800 p-6 rounded-3xl">
-                        <div className="flex items-center justify-between mb-4">
-                            <div className="flex items-center gap-2">
-                                <span className="text-lg">ðŸ˜´</span>
-                                <h3 className="font-bold text-white uppercase text-xs tracking-widest">Productos Sin Ventas Hoy</h3>
-                            </div>
-                            <span className="text-zinc-500 text-xs">{dormantProducts.length} productos</span>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                            {dormantProducts.slice(0, 10).map((product) => (
-                                <span key={product.id} className="text-xs bg-zinc-800 text-zinc-400 px-3 py-1.5 rounded-lg border border-zinc-700">
-                                    {product.name}
-                                </span>
-                            ))}
-                            {dormantProducts.length > 10 && (
-                                <span className="text-xs bg-zinc-800 text-zinc-500 px-3 py-1.5 rounded-lg">
-                                    +{dormantProducts.length - 10} mÃ¡s
-                                </span>
-                            )}
-                        </div>
-                    </div>
-                )}
 
                 {/* Data History Columns */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -824,7 +335,7 @@ export const BalancePage = () => {
                     <div className="bg-zinc-900/50 rounded-3xl border border-zinc-800 flex flex-col h-[500px]">
                         <div className="p-5 flex items-center justify-between border-b border-zinc-800 bg-zinc-900/80 rounded-t-3xl">
                             <div className="flex items-center gap-2">
-                                <History size={18} className="text-zinc-500" />
+                                <HistoryIcon size={18} className="text-zinc-500" />
                                 <h3 className="font-bold text-zinc-400 text-xs uppercase tracking-widest">Ventas</h3>
                             </div>
                             <span className="text-[10px] font-bold text-zinc-500 bg-zinc-800 px-2 py-1 rounded-full uppercase">
@@ -851,14 +362,14 @@ export const BalancePage = () => {
                                                     </span>
                                                 </div>
                                                 <p className="text-[10px] text-zinc-500 font-medium flex items-center gap-2">
-                                                    <span>{sale.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} â€¢ <span className="italic">Por {sale.salespersonName}</span></span>
+                                                    <span>{sale.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • <span className="italic">Por {sale.salespersonName}</span></span>
                                                     {sale.location && (
                                                         <a
                                                             href={`https://www.google.com/maps?q=${sale.location.lat},${sale.location.lng}`}
                                                             target="_blank"
                                                             rel="noopener noreferrer"
                                                             className="flex items-center gap-1 text-indigo-500 hover:text-indigo-400 bg-indigo-500/10 px-1.5 py-0.5 rounded-full transition-colors"
-                                                            title="Ver ubicaciÃ³n de venta"
+                                                            title="Ver ubicación de venta"
                                                             onClick={(e) => e.stopPropagation()}
                                                         >
                                                             <MapPin size={10} />
@@ -913,7 +424,7 @@ export const BalancePage = () => {
                 </div>
             </div>
 
-            {/* SECCIÃ“N DE SEGURIDAD Y USUARIOS */}
+            {/* SECCIÓN DE SEGURIDAD Y USUARIOS */}
             <div className="max-w-7xl mx-auto px-6 pb-20">
                 <div className="bg-zinc-900/50 border border-zinc-800 rounded-3xl overflow-hidden">
                     <div className="p-6 border-b border-zinc-800 flex justify-between items-center bg-zinc-900/80">
@@ -922,8 +433,8 @@ export const BalancePage = () => {
                                 <Shield size={24} />
                             </div>
                             <div>
-                                <h3 className="text-xl font-black text-white tracking-tight">GestiÃ³n de Accesos</h3>
-                                <p className="text-zinc-400 text-xs font-medium">Controla quiÃ©n puede vender y acceder al sistema</p>
+                                <h3 className="text-xl font-black text-white tracking-tight">Gestión de Accesos</h3>
+                                <p className="text-zinc-400 text-xs font-medium">Controla quién puede vender y acceder al sistema</p>
                             </div>
                         </div>
                         <button
@@ -939,7 +450,7 @@ export const BalancePage = () => {
                             {/* Lista de Usuarios */}
                             <div className="col-span-2 p-6">
                                 <h4 className="text-sm font-bold text-zinc-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                                    <Activity size={16} />
+                                    <ActivityIcon size={16} />
                                     Usuarios Activos
                                 </h4>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -952,12 +463,12 @@ export const BalancePage = () => {
                                                 <div>
                                                     <p className="font-bold text-white flex items-center gap-2">
                                                         {user.name}
-                                                        {user.id === currentUser?.id && <span className="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full">TÃš</span>}
+                                                        {user.id === currentUser?.id && <span className="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full">TÚ</span>}
                                                     </p>
                                                     <div className="flex items-center gap-2 text-xs text-zinc-500 font-medium">
                                                         <span className={`w-2 h-2 rounded-full ${user.role === 'admin' ? 'bg-amber-400' : 'bg-emerald-400'}`} />
                                                         <span className="uppercase">{user.role}</span>
-                                                        <span className="text-zinc-700 mx-1">â€¢</span>
+                                                        <span className="text-zinc-700 mx-1">•</span>
                                                         <span>{user.lastActive ? new Date(user.lastActive).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Nunca'}</span>
                                                     </div>
                                                 </div>
@@ -991,13 +502,13 @@ export const BalancePage = () => {
                                         <input
                                             type="text"
                                             className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white font-bold focus:outline-none focus:border-indigo-500 transition-all"
-                                            placeholder="Ej. Juan PÃ©rez"
+                                            placeholder="Ej. Juan Pérez"
                                             value={newUser.name}
                                             onChange={e => setNewUser({ ...newUser, name: e.target.value })}
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-xs font-bold text-zinc-500 mb-1">PIN de Acceso (4 dÃ­gitos)</label>
+                                        <label className="block text-xs font-bold text-zinc-500 mb-1">PIN de Acceso (4 dígitos)</label>
                                         <div className="relative">
                                             <input
                                                 type="text"
@@ -1040,7 +551,7 @@ export const BalancePage = () => {
                 </div>
             </div>
 
-            {/* VISTA DE IMPRESIÃ“N EMPRESARIAL (PURA TABLA) */}
+            {/* VISTA DE IMPRESIÓN EMPRESARIAL (PURA TABLA) */}
             <div className="print-only">
                 <div className="mb-10 text-center border-b-4 border-black pb-6">
                     <h1 className="text-4xl font-black uppercase tracking-tighter mb-2">PA LOS PIES - Sneakers POS</h1>
@@ -1075,8 +586,8 @@ export const BalancePage = () => {
                                     <th>ID</th>
                                     <th>Hora</th>
                                     <th>Vendedor</th>
-                                    <th>MÃ©todo</th>
-                                    <th>ArtÃ­culos</th>
+                                    <th>Método</th>
+                                    <th>Artículos</th>
                                     <th>Total</th>
                                 </tr>
                             </thead>
@@ -1101,7 +612,7 @@ export const BalancePage = () => {
                         <table>
                             <thead>
                                 <tr>
-                                    <th>DescripciÃ³n</th>
+                                    <th>Descripción</th>
                                     <th>Hora</th>
                                     <th>Monto</th>
                                 </tr>
@@ -1136,7 +647,7 @@ export const BalancePage = () => {
                     <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 overflow-hidden">
                         <div className="flex justify-between items-center mb-4">
                             <h3 className="text-white font-bold flex items-center gap-2">
-                                <History size={18} className="text-zinc-500" />
+                                <HistoryIcon size={18} className="text-zinc-500" />
                                 Historial de Ventas ({startDate.toLocaleDateString()} - {endDate.toLocaleDateString()})
                             </h3>
                             <span className="text-xs font-mono text-zinc-500 bg-zinc-950 px-2 py-1 rounded">
@@ -1151,7 +662,7 @@ export const BalancePage = () => {
                                         <th className="px-4 py-3 rounded-l-xl">ID</th>
                                         <th className="px-4 py-3">Hora</th>
                                         <th className="px-4 py-3">Monto</th>
-                                        <th className="px-4 py-3 rounded-r-xl">MÃ©todo</th>
+                                        <th className="px-4 py-3 rounded-r-xl">Método</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-zinc-800">
@@ -1183,7 +694,7 @@ export const BalancePage = () => {
                     <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 overflow-hidden">
                         <div className="flex justify-between items-center mb-4">
                             <h3 className="text-white font-bold flex items-center gap-2">
-                                <Activity size={18} className="text-red-500" />
+                                <ActivityIcon size={18} className="text-red-500" />
                                 Historial de Gastos
                             </h3>
                             <span className="text-xs font-mono text-zinc-500 bg-zinc-950 px-2 py-1 rounded">
@@ -1237,24 +748,62 @@ export const BalancePage = () => {
                                 <Cloud size={24} />
                             </div>
                             <div>
-                                <h3 className="text-xl font-black text-white">SincronizaciÃ³n Nube</h3>
+                                <h3 className="text-xl font-black text-white">Sincronización Nube</h3>
                                 <p className="text-blue-200 text-xs">
-                                    DiagnÃ³stico y Descarga | <span className="text-white font-bold">BD Local: {localCount} ventas</span>
+                                    Diagnóstico y Descarga | <span className="text-white font-bold">BD Local: {localCount} ventas</span>
                                 </p>
                             </div>
                         </div>
-                        <button
-                            onClick={handleForceSync}
-                            disabled={isSyncing}
-                            className={`px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-2 transition-all ${isSyncing ? 'bg-zinc-700 text-zinc-500' : 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-500/20'}`}
-                        >
-                            {isSyncing ? <RefreshCw className="animate-spin" size={18} /> : <Database size={18} />}
-                            {isSyncing ? 'Sincronizando...' : 'Forzar Descarga'}
-                        </button>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => setDebugMode(!debugMode)}
+                                className={`px-3 py-2 rounded-xl font-bold text-xs border transition-all ${debugMode ? 'bg-yellow-500/20 text-yellow-300 border-yellow-500/50' : 'bg-zinc-800 text-zinc-400 border-zinc-700'}`}
+                            >
+                                {debugMode ? 'Ocultar Debug' : 'Debug'}
+                            </button>
+                            <button
+                                onClick={handleForceSync}
+                                disabled={isSyncing}
+                                className={`px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-2 transition-all ${isSyncing ? 'bg-zinc-700 text-zinc-500' : 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-500/20'}`}
+                            >
+                                {isSyncing ? <RefreshCw className="animate-spin" size={18} /> : <Database size={18} />}
+                                {isSyncing ? 'Sincronizando...' : 'Forzar Descarga'}
+                            </button>
+                        </div>
                     </div>
                     {syncLog && (
                         <div className={`p-3 rounded-xl text-xs font-mono font-bold break-all whitespace-pre-wrap ${syncLog.includes('Error') ? 'bg-red-500/20 text-red-300 border border-red-500/30' : 'bg-green-500/20 text-green-300 border border-green-500/30'}`}>
                             {syncLog}
+                        </div>
+                    )}
+
+                    {debugMode && (
+                        <div className="mt-4 p-4 bg-black/50 rounded-xl border border-yellow-500/30 font-mono text-[10px] text-zinc-400 overflow-x-auto">
+                            <h4 className="text-yellow-400 font-bold mb-2">🔍 INSPECTOR DE FECHAS (Últimas 5)</h4>
+                            <p className="mb-2">Filtro Actual: {startDate.toISOString()} - {endDate.toISOString()}</p>
+                            <table className="w-full text-left">
+                                <thead>
+                                    <tr className="text-yellow-600 border-b border-yellow-900/30">
+                                        <th className="p-1">ID</th>
+                                        <th className="p-1">Timestamp (Raw)</th>
+                                        <th className="p-1">Local String</th>
+                                        <th className="p-1">Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {debugSales.map(s => {
+                                        const d = new Date(s.timestamp);
+                                        return (
+                                            <tr key={s.id} className="border-b border-zinc-800/50">
+                                                <td className="p-1 text-white">#{s.id}</td>
+                                                <td className="p-1 text-cyan-400">{s.timestamp}</td>
+                                                <td className="p-1">{isNaN(d.getTime()) ? 'INVALID' : d.toLocaleString()}</td>
+                                                <td className="p-1 text-green-400">L {s.total}</td>
+                                            </tr>
+                                        )
+                                    })}
+                                </tbody>
+                            </table>
                         </div>
                     )}
                 </div>
