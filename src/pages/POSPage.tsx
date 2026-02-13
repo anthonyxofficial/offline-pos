@@ -131,9 +131,7 @@ export const POSPage = () => {
                         'layaway',
                         currentUser,
                         `Apartado - ${customerName}`,
-                        layaway.id?.toString() // Ideally we would get the ID from add() result but layaway object might not have it yet if not returned. 
-                        // Wait, db.layaways.add returns the ID.
-                        // Let's capture the ID first.
+                        layaway.id?.toString()
                     );
                 }
             }
@@ -283,10 +281,8 @@ export const POSPage = () => {
         }
     };
 
-
-
     return (
-        <div className="flex flex-col md:flex-row h-full gap-4 relative">
+        <div className="flex flex-col md:flex-row h-full gap-6 relative">
             <SizeSelectorModal
                 isOpen={isSizeModalOpen}
                 onClose={() => setIsSizeModalOpen(false)}
@@ -298,18 +294,119 @@ export const POSPage = () => {
                 isOpen={isRecentSalesOpen}
                 onClose={() => setIsRecentSalesOpen(false)}
                 sales={recentSales || []}
+                // @ts-ignore
                 onRepaintReceipt={(sale) => {
                     setLastSale(sale);
                     setIsReceiptOpen(true);
                 }}
             />
 
+            {/* Left Column: Products - Increased gap and padding for "Airy" feel */}
+            <div className="flex-1 flex flex-col gap-6 overflow-hidden pb-20 md:pb-0 relative z-10">
+                {/* Header: User & Search */}
+                <div className="flex items-center gap-4 justify-between bg-black/20 p-4 rounded-3xl backdrop-blur-md border border-white/5 shadow-xl">
+                    <div className="flex items-center gap-3 flex-1">
+                        {/* User Selector Dropdown (Styled) */}
+                        <div className="relative group">
+                            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center text-white font-black shadow-lg shadow-purple-900/40 cursor-pointer hover:scale-105 transition-transform">
+                                {currentUser ? currentUser.name.substring(0, 2).toUpperCase() : '?'}
+                            </div>
+                            <select
+                                className="absolute inset-0 opacity-0 cursor-pointer"
+                                value={currentUser?.id || ''}
+                                onChange={e => {
+                                    const user = users?.find(u => u.id === Number(e.target.value));
+                                    if (user) setCurrentUser(user);
+                                }}
+                            >
+                                <option value="">Seleccionar</option>
+                                {users?.map(u => (
+                                    <option key={u.id} value={u.id}>{u.name}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div className="flex flex-col">
+                            <span className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Vendedor</span>
+                            <span className="text-white font-bold text-lg leading-none">
+                                {currentUser ? currentUser.name : 'Seleccionar...'}
+                            </span>
+                        </div>
+                    </div>
+
+                    <button
+                        onClick={() => setIsRecentSalesOpen(true)}
+                        className="p-3 rounded-2xl bg-zinc-800/50 text-zinc-400 hover:bg-purple-600 hover:text-white transition-all hover:scale-105 hover:shadow-[0_0_15px_rgba(168,85,247,0.5)]"
+                    >
+                        <History size={20} />
+                    </button>
+                </div>
+
+                {/* Search Bar Spotlight */}
+                <div className="relative group">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 group-focus-within:text-purple-400 transition-colors" size={20} />
+                    <input
+                        type="search" // "search" for better mobile keyboard
+                        placeholder="Buscar sneakers..."
+                        className="w-full pl-12 pr-4 py-4 bg-black/40 border border-white/5 rounded-2xl text-white placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-all shadow-inner backdrop-blur-sm"
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                    />
+                </div>
+
+                {/* Categories */}
+                <CategoryFilter
+                    activeCategory={activeCategory}
+                    onSelect={setActiveCategory}
+                />
+
+                {/* Products Grid */}
+                <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
+                    <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4 gap-4 pb-24 md:pb-4">
+                        {products?.map(product => (
+                            <ProductCard
+                                key={product.id}
+                                product={product}
+                                onAdd={handleProductClick}
+                            />
+                        ))}
+                        {products?.length === 0 && (
+                            <div className="col-span-full flex flex-col items-center justify-center text-zinc-600 py-10">
+                                <span className="text-4xl mb-4 opacity-50">👟</span>
+                                <p>No se encontraron productos</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            {/* Right Column: Floating Cart (Glassmorphism) */}
+            {/* Mobile: Full wrapper logic handled by CSS in Layout usually, but here manually toggled or stacked */}
+            <div className={`
+                fixed md:static inset-0 z-40 bg-black/90 md:bg-transparent transition-transform duration-300
+                ${cart.length > 0 ? 'translate-y-0' : 'translate-y-full md:translate-y-0'}
+                md:w-[380px] md:flex flex-col
+            `}>
+                <div className="h-full md:h-auto md:bg-black/40 md:backdrop-blur-xl md:border md:border-white/5 md:rounded-3xl md:shadow-2xl overflow-hidden flex flex-col relative md:sticky md:top-4 md:max-h-[calc(100vh-2rem)]">
+                    {/* Mobile Close Handle */}
+                    <div className="md:hidden w-full flex justify-center py-2" onClick={() => clearCart()}> {/* Just explicit close for mobile for now if needed */}
+                        <div className="w-16 h-1.5 bg-zinc-700 rounded-full" />
+                    </div>
+
+                    <Cart
+                        onCheckout={handleCheckoutClick}
+                        onClear={clearCart}
+                    />
+                </div>
+            </div>
+
+            {/* Modals */}
             <PaymentModal
                 isOpen={isPaymentOpen}
                 onClose={() => setIsPaymentOpen(false)}
+                total={cart.reduce((sum, item) => sum + (item.price * item.quantity), 0)}
                 onConfirm={handleConfirmPayment}
                 onConfirmLayaway={handleConfirmLayaway}
-                total={cart.reduce((s, i) => s + (i.price * i.quantity), 0)}
             />
 
             <ReceiptModal
@@ -317,92 +414,6 @@ export const POSPage = () => {
                 onClose={() => setIsReceiptOpen(false)}
                 sale={lastSale}
             />
-
-            {/* Left Column: Products */}
-            <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
-                {!currentUser && (
-                    <div className="mb-6 bg-red-950/30 border border-red-900/50 p-6 rounded-2xl animate-fade-in shrink-0">
-                        <h3 className="text-red-400 font-bold text-lg mb-3">⚠️ Sistema Bloqueado: Seleccione un Vendedor</h3>
-                        <div className="flex flex-wrap gap-3">
-                            {users?.map(user => (
-                                <button
-                                    key={user.id}
-                                    onClick={() => setCurrentUser(user)}
-                                    className="px-4 py-2 bg-zinc-900 border border-red-900/30 text-red-400 rounded-xl font-medium hover:bg-red-900/50 hover:text-white transition-colors"
-                                >
-                                    Soy {user.name}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                )}
-
-                <div className="flex gap-4 mb-4 shrink-0">
-                    <div className="relative group flex-1">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-white transition-colors" size={20} />
-                        <input
-                            type="text"
-                            placeholder="Buscar productos..."
-                            className="w-full pl-12 pr-6 py-3 rounded-xl border border-zinc-700 bg-zinc-800/50 text-white focus:outline-none focus:ring-2 focus:ring-white/10 focus:border-zinc-500 md:text-lg shadow-sm transition-all placeholder:text-zinc-400"
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                        />
-                    </div>
-                    {currentUser && (
-                        <button
-                            onClick={() => setIsRecentSalesOpen(true)}
-                            className="aspect-square h-full bg-zinc-800 border border-zinc-700 rounded-xl flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-700 transition-all shadow-sm group"
-                            title="Historial de Ventas Recientes"
-                        >
-                            <History size={24} className="group-hover:scale-110 transition-transform" />
-                        </button>
-                    )}
-                </div>
-
-                <CategoryFilter activeCategory={activeCategory} onSelect={setActiveCategory} />
-
-                {/* Product Grid */}
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4 overflow-y-auto pr-1 pb-32 md:pb-0 scrollbar-hide content-start">
-                    {products?.map((product) => (
-                        <ProductCard key={product.id} product={product} onAdd={handleProductClick} />
-                    ))}
-                    {products?.length === 0 && (
-                        <div className="col-span-full text-center py-20 flex flex-col items-center">
-                            <p className="text-zinc-500 text-lg mb-4">No se encontraron productos.</p>
-                            <button
-                                // @ts-ignore
-                                onClick={() => import('../db/seed').then(m => m.resetDatabase())}
-                                className="px-6 py-3 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl font-bold transition-all shadow-lg shadow-black/20"
-                            >
-                                ↻ Cargar Productos de Prueba
-                            </button>
-                        </div>
-                    )}
-                </div>
-            </div>
-
-            {/* Right Column: Cart (Desktop) */}
-            <div className="hidden md:flex flex-col w-96 h-full shrink-0">
-                <Cart onCheckout={handleCheckoutClick} />
-            </div>
-
-            {/* Mobile Fab / Bottom Sheet trigger */}
-            {cart.length > 0 && (
-                <div className="md:hidden fixed bottom-24 left-4 right-4 z-30">
-                    <button
-                        onClick={handleCheckoutClick}
-                        className="w-full bg-white text-black p-4 rounded-2xl shadow-xl flex justify-between items-center"
-                    >
-                        <div className="flex items-center gap-3">
-                            <div className="bg-zinc-200 text-black px-3 py-1 rounded-lg text-sm font-bold">{cart.length} items</div>
-                            <span className="font-medium">Ver Carrito / Cobrar</span>
-                        </div>
-                        <span className="font-bold text-lg">
-                            L {cart.reduce((s, i) => s + (i.price * i.quantity), 0).toFixed(2)}
-                        </span>
-                    </button>
-                </div>
-            )}
         </div>
     );
 };

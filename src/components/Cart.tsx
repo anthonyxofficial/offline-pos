@@ -5,10 +5,11 @@ import { Numpad } from './Numpad';
 
 interface CartProps {
     onCheckout: () => void;
+    onClear: () => void;
 }
 
-export const Cart = ({ onCheckout }: CartProps) => {
-    const { cart, updateQuantity, updatePrice, updateDiscount, clearCart, selectedCartKey, setSelectedCartKey } = usePOS();
+export const Cart = ({ onCheckout, onClear }: CartProps) => {
+    const { cart, updateQuantity, updatePrice, updateDiscount, selectedCartKey, setSelectedCartKey } = usePOS();
     const [activeMode, setActiveMode] = useState<'qty' | 'price' | 'disc'>('qty');
 
     const total = cart.reduce((sum, item) => {
@@ -22,7 +23,7 @@ export const Cart = ({ onCheckout }: CartProps) => {
             <div className="p-4 border-b border-zinc-800 bg-zinc-900/80 flex justify-between items-center shrink-0">
                 <h2 className="font-bold text-white text-lg">Ticket</h2>
                 <button
-                    onClick={clearCart}
+                    onClick={onClear}
                     className="text-xs text-zinc-500 hover:text-red-400 font-medium px-3 py-1 bg-zinc-800 rounded-full transition-colors uppercase tracking-wider hover:bg-zinc-700"
                 >
                     Limpiar

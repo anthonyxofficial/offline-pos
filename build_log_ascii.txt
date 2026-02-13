@@ -1,5 +1,0 @@
-
-> offline-pos@0.0.0 build
-> tsc -b && vite build
-
-src/pages/BalancePage.tsx(1,31): error TS6133: 'useMemo' is declared but its value is never read.

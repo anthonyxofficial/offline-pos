@@ -6,7 +6,7 @@ interface RecentSalesModalProps {
     isOpen: boolean;
     onClose: () => void;
     sales: Sale[];
-    onRepaintReceipt: (sale: Sale) => void;
+    onRepaintReceipt: (sale: any) => void;
 }
 
 export const RecentSalesModal = ({ isOpen, onClose, sales, onRepaintReceipt }: RecentSalesModalProps) => {
