@@ -120,6 +120,11 @@ export const syncAllData = async () => {
     }
     console.log(`[SYNC] Total products synced: ${allProducts.length}`);
 
+    console.log(`[SYNC] Total products synced: ${allProducts.length}`);
+
+    // Sync Expenses (Full History)
+    await syncExpenses();
+
     return { sales: allSales.length, products: allProducts.length };
 };
 
