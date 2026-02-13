@@ -219,6 +219,7 @@ export const initSupabase = async () => {
         // Setup Realtime Subscriptions for Expenses
         supabase.channel('public:expenses')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses' }, async (payload: any) => {
+                console.log('[REALTIME] Expense event received:', payload);
                 if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
                     const expense = payload.new;
                     await db.expenses.put({
@@ -229,11 +230,14 @@ export const initSupabase = async () => {
                         timestamp: new Date(expense.timestamp),
                         synced: true
                     } as any);
+                    console.log('[REALTIME] Expense synced to local DB:', expense.id);
                 } else if (payload.eventType === 'DELETE') {
                     await db.expenses.delete(payload.old.id);
                 }
             })
-            .subscribe();
+            .subscribe((status) => {
+                console.log('[REALTIME] Expenses subscription status:', status);
+            });
 
         // Initial Sync
         await syncNow();
