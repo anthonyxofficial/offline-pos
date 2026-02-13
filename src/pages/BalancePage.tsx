@@ -40,7 +40,24 @@ export const BalancePage = () => {
 
     useEffect(() => {
         db.sales.count().then(setLocalCount);
+        // Load settings
+        db.table('settings').get('supabase_url').then(r => r && setSupabaseUrl(r.value));
+        db.table('settings').get('supabase_key').then(r => r && setSupabaseKey(r.value));
     }, []);
+
+    const [supabaseUrl, setSupabaseUrl] = useState('');
+    const [supabaseKey, setSupabaseKey] = useState('');
+
+    const handleSaveSupabaseConfig = async () => {
+        if (!supabaseUrl || !supabaseKey) {
+            alert('Por favor ingresa ambos campos');
+            return;
+        }
+        await db.table('settings').put({ key: 'supabase_url', value: supabaseUrl });
+        await db.table('settings').put({ key: 'supabase_key', value: supabaseKey });
+        alert('Configuración guardada. Recargando para aplicar...');
+        window.location.reload();
+    };
 
     // Debug fetcher
     useEffect(() => {
@@ -561,8 +578,73 @@ export const BalancePage = () => {
 
                     {showUserAuth && (
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-0 md:divide-x divide-zinc-800">
+                            {/* Configuración de Supabase */}
+                            <div className="p-6 bg-zinc-900/30 border-r border-zinc-800">
+                                <h4 className="text-sm font-bold text-zinc-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                    <Cloud size={16} className="text-indigo-400" />
+                                    Conexión a Supabase
+                                </h4>
+                                <div className="space-y-4 mb-6">
+                                    <div>
+                                        <label className="block text-xs font-bold text-zinc-500 mb-1">Project URL</label>
+                                        <input
+                                            type="text"
+                                            className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-white text-xs font-mono focus:outline-none focus:border-indigo-500 transition-all"
+                                            placeholder="https://..."
+                                            value={supabaseUrl}
+                                            onChange={(e) => setSupabaseUrl(e.target.value)}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-zinc-500 mb-1">API Key</label>
+                                        <input
+                                            type="password"
+                                            className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-white text-xs font-mono focus:outline-none focus:border-indigo-500 transition-all"
+                                            placeholder="sbp_..."
+                                            value={supabaseKey}
+                                            onChange={(e) => setSupabaseKey(e.target.value)}
+                                        />
+                                    </div>
+                                    <button
+                                        onClick={handleSaveSupabaseConfig}
+                                        className="w-full py-2 bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-400 rounded-xl text-xs font-bold transition-all border border-indigo-600/30"
+                                    >
+                                        Guardar Conexión
+                                    </button>
+                                </div>
+
+                                <h4 className="text-sm font-bold text-zinc-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                    <RefreshCw size={16} className="text-emerald-400" />
+                                    Sincronización Manual
+                                </h4>
+                                <div className="space-y-2">
+                                    <button
+                                        onClick={handleForcePush}
+                                        disabled={isSyncing}
+                                        className="w-full flex items-center justify-between p-3 bg-zinc-950 border border-zinc-800 hover:border-indigo-500 rounded-xl group transition-all"
+                                    >
+                                        <span className="text-xs font-bold text-zinc-400 group-hover:text-white">Forzar SUBIDA (Push)</span>
+                                        <Upload size={16} className="text-zinc-600 group-hover:text-indigo-500" />
+                                    </button>
+                                    <button
+                                        onClick={handleForceSync}
+                                        disabled={isSyncing}
+                                        className="w-full flex items-center justify-between p-3 bg-zinc-950 border border-zinc-800 hover:border-emerald-500 rounded-xl group transition-all"
+                                    >
+                                        <span className="text-xs font-bold text-zinc-400 group-hover:text-white">Forzar DESCARGA (Pull)</span>
+                                        <Download size={16} className="text-zinc-600 group-hover:text-emerald-500" />
+                                    </button>
+                                </div>
+
+                                {syncLog && (
+                                    <div className="mt-4 p-3 bg-black/50 rounded-xl border border-zinc-800">
+                                        <p className="text-[10px] font-mono text-zinc-400 break-words">{syncLog}</p>
+                                    </div>
+                                )}
+                            </div>
+
                             {/* Lista de Usuarios */}
-                            <div className="col-span-2 p-6">
+                            <div className="p-6">
                                 <h4 className="text-sm font-bold text-zinc-400 uppercase tracking-widest mb-4 flex items-center gap-2">
                                     <ActivityIcon size={16} />
                                     Usuarios Activos
