@@ -45,7 +45,7 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({ isOpen, onClos
                         timestamp: expenseData.timestamp.toISOString(), // PG format
                         salesperson_id: expenseData.salespersonId
                     }]);
-                    await db.expenses.update(id, { synced: true });
+                    await db.expenses.update(id, { synced: true } as any);
                 }
             } catch (err) {
                 console.error("Cloud sync failed for expense:", err);
