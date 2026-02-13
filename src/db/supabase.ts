@@ -216,6 +216,25 @@ export const initSupabase = async () => {
             })
             .subscribe();
 
+        // Setup Realtime Subscriptions for Expenses
+        supabase.channel('public:expenses')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses' }, async (payload: any) => {
+                if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+                    const expense = payload.new;
+                    await db.expenses.put({
+                        id: expense.id,
+                        amount: expense.amount,
+                        description: expense.description,
+                        salespersonId: expense.salesperson_id || 0,
+                        timestamp: new Date(expense.timestamp),
+                        synced: true
+                    } as any);
+                } else if (payload.eventType === 'DELETE') {
+                    await db.expenses.delete(payload.old.id);
+                }
+            })
+            .subscribe();
+
         // Initial Sync
         await syncNow();
 
