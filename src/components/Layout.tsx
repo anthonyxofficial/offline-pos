@@ -12,6 +12,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
     const [time, setTime] = React.useState(new Date());
 
     React.useEffect(() => {
+        console.log("POS v1.3.1 (Expenses Sync) Loaded");
         const timer = setInterval(() => setTime(new Date()), 1000);
         return () => clearInterval(timer);
     }, []);
@@ -68,6 +69,11 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                     <span className="text-[9px] text-zinc-400 font-bold uppercase mt-1">
                         {formatDate(time)}
                     </span>
+                </div>
+
+                {/* Version Indicator */}
+                <div className="hidden md:block mb-4 px-2 opacity-30 hover:opacity-60 transition-opacity">
+                    <p className="text-[9px] text-center font-mono text-zinc-500">v1.3.2 (Stable)</p>
                 </div>
 
                 <div className="flex flex-row md:flex-col gap-2 md:gap-4 w-full md:px-2 h-full md:h-auto items-center justify-around md:justify-start">

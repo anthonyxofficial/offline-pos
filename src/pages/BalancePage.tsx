@@ -337,7 +337,12 @@ export const BalancePage = () => {
                     <span className="text-zinc-500 font-bold text-xs uppercase tracking-wider mb-1 block">
                         Estados Financieros
                     </span>
-                    <h1 className="text-3xl font-black text-white tracking-tight">Balance General</h1>
+                    <h1 className="text-3xl font-black text-white tracking-tighter">
+                        BALANCE
+                        <span className="ml-2 text-xs font-mono bg-purple-500/20 text-purple-300 px-2 py-1 rounded-full border border-purple-500/30 align-middle">
+                            v1.3.2
+                        </span>
+                    </h1>
                 </div>
 
                 <div className="flex flex-col md:flex-row items-center gap-4">
