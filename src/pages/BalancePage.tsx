@@ -11,7 +11,7 @@ import {
     Lock,
     RefreshCw,
     MapPin,
-    // Settings,
+    Settings,
     Upload,
     QrCode,
     Banknote,
@@ -101,18 +101,72 @@ export const BalancePage = () => {
             const end = new Date(year, month - 1, day, 23, 59, 59, 999);
             setStartDate(start);
             setEndDate(end);
+            setActiveFilter('day');
         }
     }, [customDate]);
 
+    const [activeFilter, setActiveFilter] = useState<'day' | 'week' | 'fortnight' | 'month'>('day');
 
     const setToday = () => {
-        // Use standard date formatter to get local YYYY-MM-DD
         const today = new Date();
         const year = today.getFullYear();
         const month = String(today.getMonth() + 1).padStart(2, '0');
         const day = String(today.getDate()).padStart(2, '0');
-        // Manual construction to avoid timezone shifts
         setCustomDate(`${year}-${month}-${day}`);
+        setActiveFilter('day');
+    };
+
+    const setWeek = () => {
+        const today = new Date();
+        const day = today.getDay(); // 0 (Sun) - 6 (Sat)
+        const diff = today.getDate() - day + (day === 0 ? -6 : 1); // Adjust when day is Sunday
+
+        const start = new Date(today.setDate(diff));
+        start.setHours(0, 0, 0, 0);
+
+        const end = new Date(today.setDate(diff + 6));
+        end.setHours(23, 59, 59, 999);
+
+        setCustomDate(''); // Disable custom date effect
+        setStartDate(start);
+        setEndDate(end);
+        setActiveFilter('week');
+    };
+
+    const setFortnight = () => {
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = today.getMonth();
+        const day = today.getDate();
+
+        let start, end;
+
+        if (day <= 15) {
+            start = new Date(year, month, 1, 0, 0, 0, 0);
+            end = new Date(year, month, 15, 23, 59, 59, 999);
+        } else {
+            start = new Date(year, month, 16, 0, 0, 0, 0);
+            end = new Date(year, month + 1, 0, 23, 59, 59, 999); // Last day of month
+        }
+
+        setCustomDate('');
+        setStartDate(start);
+        setEndDate(end);
+        setActiveFilter('fortnight');
+    };
+
+    const setMonth = () => {
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = today.getMonth();
+
+        const start = new Date(year, month, 1, 0, 0, 0, 0);
+        const end = new Date(year, month + 1, 0, 23, 59, 59, 999);
+
+        setCustomDate('');
+        setStartDate(start);
+        setEndDate(end);
+        setActiveFilter('month');
     };
 
     const users = useLiveQuery(() => db.users.toArray());
@@ -247,20 +301,58 @@ export const BalancePage = () => {
                     <h1 className="text-3xl font-black text-white tracking-tight">Balance General</h1>
                 </div>
 
-                <div className="flex items-center gap-3 bg-zinc-900/50 p-2 rounded-2xl border border-zinc-800">
+                <div className="flex flex-col md:flex-row items-center gap-4">
+                    {/* Quick Filters */}
+                    <div className="flex bg-zinc-900/50 p-1 rounded-xl border border-zinc-800">
+                        {(['day', 'week', 'fortnight', 'month'] as const).map((filter) => (
+                            <button
+                                key={filter}
+                                onClick={() => {
+                                    if (filter === 'day') setToday();
+                                    if (filter === 'week') setWeek();
+                                    if (filter === 'fortnight') setFortnight();
+                                    if (filter === 'month') setMonth();
+                                }}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase transition-all ${activeFilter === filter
+                                    ? 'bg-zinc-700 text-white shadow-lg'
+                                    : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800'
+                                    }`}
+                            >
+                                {filter === 'day' && 'Día'}
+                                {filter === 'week' && 'Semana'}
+                                {filter === 'fortnight' && 'Quincena'}
+                                {filter === 'month' && 'Mes'}
+                            </button>
+                        ))}
+                    </div>
+
+                    <div className="flex items-center gap-2 bg-zinc-900/50 p-2 rounded-2xl border border-zinc-800">
+                        <button
+                            onClick={setToday}
+                            className="p-3 hover:bg-zinc-800 text-zinc-400 hover:text-white rounded-xl transition-all"
+                            title="Hoy"
+                        >
+                            <CalendarIcon size={20} />
+                        </button>
+                        <input
+                            type="date"
+                            value={customDate}
+                            onChange={(e) => setCustomDate(e.target.value)}
+                            className="bg-transparent text-white font-bold text-lg outline-none px-2"
+                        />
+                    </div>
+
                     <button
-                        onClick={setToday}
-                        className="p-3 hover:bg-zinc-800 text-zinc-400 hover:text-white rounded-xl transition-all"
-                        title="Hoy"
+                        onClick={() => {
+                            setShowUserAuth(true); // Open section
+                            // Scroll to section
+                            document.getElementById('access-section')?.scrollIntoView({ behavior: 'smooth' });
+                        }}
+                        className="p-4 bg-zinc-900/50 border border-zinc-800 rounded-2xl text-zinc-400 hover:text-white hover:bg-zinc-800 transition-all"
+                        title="Configuración"
                     >
-                        <CalendarIcon size={20} />
+                        <Settings size={20} />
                     </button>
-                    <input
-                        type="date"
-                        value={customDate}
-                        onChange={(e) => setCustomDate(e.target.value)}
-                        className="bg-transparent text-white font-bold text-lg outline-none px-2"
-                    />
                 </div>
             </div>
 
@@ -447,7 +539,7 @@ export const BalancePage = () => {
             </div>
 
             {/* SECCIÓN DE SEGURIDAD Y USUARIOS */}
-            <div className="max-w-7xl mx-auto px-6 pb-20">
+            <div id="access-section" className="max-w-7xl mx-auto px-6 pb-20">
                 <div className="bg-zinc-900/50 border border-zinc-800 rounded-3xl overflow-hidden">
                     <div className="p-6 border-b border-zinc-800 flex justify-between items-center bg-zinc-900/80">
                         <div className="flex items-center gap-3">
