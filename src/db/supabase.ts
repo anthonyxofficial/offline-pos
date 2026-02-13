@@ -236,7 +236,10 @@ export const syncNow = async () => {
         // 2. Pull Recent Sales (Increased limit & Robustness)
         await syncRecentSales();
 
-        // 3. Pull Products (Lightweight check)
+        // 3. Sync Expenses (Bi-directional)
+        await syncExpenses();
+
+        // 4. Pull Products (Lightweight check)
         // Only if needed? For now, we do it to keep stock in sync
         const { data: products } = await supabase!.from('products').select('*');
         if (products && products.length > 0) {
@@ -247,6 +250,68 @@ export const syncNow = async () => {
     } catch (err: any) {
         console.error('[SYNC] Unified Sync Failed:', err);
         return { success: false, error: err.message };
+    }
+};
+
+export const syncExpenses = async () => {
+    if (!supabase) return;
+    try {
+        console.log('[SYNC] Syncing Expenses...');
+
+        // 1. Push Pending Expenses
+        const pendingExpenses = await db.expenses.filter(e => !((e as any).synced)).toArray();
+        if (pendingExpenses.length > 0) {
+            console.log(`[SYNC] Pushing ${pendingExpenses.length} pending expenses...`);
+            const { error } = await supabase.from('expenses').upsert(
+                pendingExpenses.map(e => ({
+                    id: e.id,
+                    amount: e.amount,
+                    description: e.description,
+                    salesperson_id: e.salespersonId,
+                    timestamp: e.timestamp.toISOString()
+                }))
+            );
+
+            if (!error) {
+                await db.transaction('rw', db.expenses, async () => {
+                    for (const e of pendingExpenses) {
+                        await db.expenses.update(e.id!, { synced: true } as any);
+                    }
+                });
+            } else {
+                console.error('[SYNC] Error pushing expenses:', error);
+            }
+        }
+
+        // 2. Pull Recent Expenses (Last 30 days or simply all if not too many)
+        // Let's pull last 100 expenses for now
+        const { data: cloudExpenses, error: pullError } = await supabase
+            .from('expenses')
+            .select('*')
+            .order('timestamp', { ascending: false })
+            .limit(100);
+
+        if (cloudExpenses && cloudExpenses.length > 0) {
+            await db.transaction('rw', db.expenses, async () => {
+                for (const exp of cloudExpenses) {
+                    const exists = await db.expenses.get(exp.id);
+                    if (!exists) {
+                        await db.expenses.put({
+                            id: exp.id,
+                            amount: exp.amount,
+                            description: exp.description,
+                            salespersonId: exp.salesperson_id || 0,
+                            timestamp: new Date(exp.timestamp),
+                            synced: true
+                        } as any);
+                    }
+                }
+            });
+            console.log(`[SYNC] Pulled ${cloudExpenses.length} expenses.`);
+        }
+
+    } catch (err) {
+        console.error('[SYNC] Error syncing expenses:', err);
     }
 };
 
