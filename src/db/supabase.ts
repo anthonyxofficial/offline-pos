@@ -37,34 +37,90 @@ export const forceSyncProducts = async () => {
     }
 };
 
-// Exported full sync function
+// Exported full sync function with pagination (Day 1 History)
 export const syncAllData = async () => {
     if (!supabase) return;
-    console.log('[SYNC] Starting full sync...');
+    console.log('[SYNC] Starting full sync (Day 1 History)...');
 
-    // Sync Sales
-    const { data: sales } = await supabase.from('sales').select('*').order('timestamp', { ascending: false });
-    if (sales) {
-        for (const s of sales) {
-            await db.sales.put({
-                ...s,
-                timestamp: new Date(s.timestamp),
-                paymentMethod: s.payment_method,
-                salespersonName: s.salesperson_name,
-                id: s.id
-            } as any);
+    // Cast to any to avoid strict type checks on specific method chains if versions mismatch
+    const client = supabase as any;
+
+    // Sync Sales (Paginated)
+    let allSales: any[] = [];
+    let page = 0;
+    const pageSize = 1000;
+    let hasMore = true;
+
+    while (hasMore) {
+        // Use range for pagination
+        const { data: salesChunk, error } = await client
+            .from('sales')
+            .select('*')
+            .order('timestamp', { ascending: false })
+            .range(page * pageSize, (page + 1) * pageSize - 1);
+
+        if (error) {
+            console.error('[SYNC] Error fetching sales page:', page, error);
+            break;
         }
-        console.log('[SYNC] Sales synced:', sales.length);
-    }
 
-    // Sync Products
-    const { data: products } = await supabase.from('products').select('*');
-    if (products && products.length > 0) {
-        await db.products.bulkPut(products);
-        console.log('[SYNC] Products merged:', products.length);
-    }
+        if (salesChunk && salesChunk.length > 0) {
+            console.log(`[SYNC] Downloaded page ${page}: ${salesChunk.length} sales`);
+            allSales = [...allSales, ...salesChunk];
 
-    return { sales: sales?.length || 0, products: products?.length || 0 };
+            // Batch insert into Dexie
+            await db.transaction('rw', db.sales, async () => {
+                for (const s of salesChunk) {
+                    await db.sales.put({
+                        ...s,
+                        timestamp: new Date(s.timestamp),
+                        paymentMethod: s.payment_method,
+                        salespersonName: s.salesperson_name,
+                        id: s.id,
+                        synced: true
+                    } as any);
+                }
+            });
+
+            if (salesChunk.length < pageSize) {
+                hasMore = false; // Less than full page means end of data
+            } else {
+                page++;
+            }
+        } else {
+            hasMore = false;
+        }
+    }
+    console.log(`[SYNC] Total sales synced: ${allSales.length}`);
+
+    // Sync Products (Paginated)
+    let allProducts: any[] = [];
+    page = 0;
+    hasMore = true;
+
+    while (hasMore) {
+        const { data: productsChunk, error } = await client
+            .from('products')
+            .select('*')
+            .range(page * pageSize, (page + 1) * pageSize - 1);
+
+        if (error) {
+            console.error('[SYNC] Error fetching products page:', page, error);
+            break;
+        }
+
+        if (productsChunk && productsChunk.length > 0) {
+            await db.products.bulkPut(productsChunk);
+            allProducts = [...allProducts, ...productsChunk];
+            if (productsChunk.length < pageSize) hasMore = false;
+            else page++;
+        } else {
+            hasMore = false;
+        }
+    }
+    console.log(`[SYNC] Total products synced: ${allProducts.length}`);
+
+    return { sales: allSales.length, products: allProducts.length };
 };
 
 // Sync recent sales (polling fallback)
