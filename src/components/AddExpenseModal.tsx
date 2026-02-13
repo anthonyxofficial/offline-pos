@@ -28,28 +28,42 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({ isOpen, onClos
                 amount: parseFloat(amount),
                 description,
                 timestamp: new Date(),
-                salespersonId: currentUser?.id || 0, // Fallback to 0 if no user (should not happen in protected route)
+                salespersonId: currentUser?.id || 0,
                 synced: false
             };
 
-            // 1. Save locally
+            // 1. Save locally (Always save first for offline safety)
             // @ts-ignore
             const id = await db.expenses.add(expenseData);
 
-            // 2. Sync to Supabase
+            // 2. Sync to Supabase (Immediate Push)
             try {
+                // Import statically at top level would be better, but verifying instance here
                 const { supabase } = await import('../db/supabase');
-                if (supabase) {
-                    await supabase.from('expenses').insert([{
-                        ...expenseData,
-                        timestamp: expenseData.timestamp.toISOString(), // PG format
-                        salesperson_id: expenseData.salespersonId
-                    }]);
+
+                if (!supabase) {
+                    throw new Error("Conexión a nube no inicializada");
+                }
+
+                console.log("[EXPENSE] Pushing to cloud...", expenseData);
+
+                const { error } = await supabase.from('expenses').insert([{
+                    amount: expenseData.amount,
+                    description: expenseData.description,
+                    timestamp: expenseData.timestamp.toISOString(),
+                    salesperson_id: expenseData.salespersonId
+                }]);
+
+                if (error) {
+                    console.error("[EXPENSE] Supabase error:", error);
+                    alert(`Error sincronizando: ${error.message}`);
+                } else {
+                    console.log("[EXPENSE] Push success!");
                     await db.expenses.update(id, { synced: true } as any);
                 }
-            } catch (err) {
+            } catch (err: any) {
                 console.error("Cloud sync failed for expense:", err);
-                // Silent fail, offline first
+                console.log("Expense saved locally only.");
             }
 
             onClose();
@@ -57,7 +71,7 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({ isOpen, onClos
             setDescription('');
         } catch (error) {
             console.error("Error saving expense:", error);
-            alert("Error al guardar el gasto");
+            alert("Error al guardar el gasto localmente");
         } finally {
             setIsSubmitting(false);
         }
