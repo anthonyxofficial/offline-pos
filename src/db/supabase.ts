@@ -127,12 +127,12 @@ export const syncAllData = async () => {
 export const syncRecentSales = async () => {
     if (!supabase) return;
     try {
-        // Fetch last 50 sales to ensure recent data is synced across devices
+        // Fetch last 100 sales to ensure recent data is synced across devices
         const { data: recentSales } = await supabase
             .from('sales')
             .select('*')
             .order('timestamp', { ascending: false })
-            .limit(50);
+            .limit(100);
 
         if (recentSales && recentSales.length > 0) {
             console.log(`[POLLING] Checking ${recentSales.length} recent sales...`);
@@ -212,34 +212,42 @@ export const initSupabase = async () => {
             .subscribe();
 
         // Initial Sync
-        await syncAllData();
+        await syncNow();
 
-        // Periodic sync every 20 seconds (More frequent for sales)
+        // Periodic sync every 20 seconds
         setInterval(async () => {
-            try {
-                // 1. Pull Products
-                const { data: products } = await supabase!.from('products').select('*');
-                if (products && products.length > 0) {
-                    await db.products.bulkPut(products);
-                }
-
-                // 2. Push Pending Sales
-                await syncPendingSales();
-
-                // 3. Pull Recent Sales (The Fix)
-                await syncRecentSales();
-
-            } catch (err) {
-                console.error('[SYNC] Periodic sync error:', err);
-            }
+            await syncNow();
         }, 20000);
-
-        // Run one sync immediately
-        await syncPendingSales();
 
         return true;
     }
     return false;
+};
+
+// Unified Sync Function (Push + Pull)
+export const syncNow = async () => {
+    if (!supabase) return { success: false, error: 'No connection' };
+    try {
+        console.log('[SYNC] Executing Unified Sync...');
+
+        // 1. Push Pending Sales
+        await syncPendingSales();
+
+        // 2. Pull Recent Sales (Increased limit & Robustness)
+        await syncRecentSales();
+
+        // 3. Pull Products (Lightweight check)
+        // Only if needed? For now, we do it to keep stock in sync
+        const { data: products } = await supabase!.from('products').select('*');
+        if (products && products.length > 0) {
+            await db.products.bulkPut(products);
+        }
+
+        return { success: true };
+    } catch (err: any) {
+        console.error('[SYNC] Unified Sync Failed:', err);
+        return { success: false, error: err.message };
+    }
 };
 
 // New function to sync pending sales

@@ -1,7 +1,7 @@
 ﻿import { useState, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/db';
-import { syncAllData, forcePushAllData } from '../db/supabase';
+import { syncAllData, forcePushAllData, syncNow, supabase } from '../db/supabase';
 import {
     Download,
     Trash2,
@@ -105,6 +105,25 @@ export const BalancePage = () => {
             }
         } catch (error: any) {
             setSyncLog(`❌ Error Crítico: ${error.message}`);
+        } finally {
+            setIsSyncing(false);
+        }
+    };
+
+    const handleQuickSync = async () => {
+        setIsSyncing(true);
+        try {
+            const result = await syncNow();
+            if (result.success) {
+                setSyncLog('✅ Sincronización Rápida Exitosa');
+                const newCount = await db.sales.count();
+                setLocalCount(newCount);
+            } else {
+                setSyncLog('❌ Error Sync: ' + result.error);
+                alert('Error al sincronizar: ' + result.error);
+            }
+        } catch (e) {
+            console.error(e);
         } finally {
             setIsSyncing(false);
         }
@@ -343,7 +362,20 @@ export const BalancePage = () => {
                         ))}
                     </div>
 
+
+
                     <div className="flex items-center gap-2 bg-zinc-900/50 p-2 rounded-2xl border border-zinc-800">
+                        {/* Status Indicator */}
+                        <div className={`w-3 h-3 rounded-full ${supabase ? 'bg-emerald-500 shadow-[0_0_10px_#10b981]' : 'bg-red-500 shadow-[0_0_10px_#ef4444]'} animate-pulse`} title={supabase ? "Conectado a Nube" : "Sin Conexión"} />
+
+                        <button
+                            onClick={handleQuickSync}
+                            disabled={isSyncing}
+                            className={`p-3 hover:bg-zinc-800 text-zinc-400 hover:text-white rounded-xl transition-all ${isSyncing ? 'animate-spin' : ''}`}
+                            title="Sincronizar Ahora"
+                        >
+                            <RefreshCw size={20} />
+                        </button>
                         <button
                             onClick={setToday}
                             className="p-3 hover:bg-zinc-800 text-zinc-400 hover:text-white rounded-xl transition-all"

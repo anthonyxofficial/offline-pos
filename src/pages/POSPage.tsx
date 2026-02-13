@@ -253,26 +253,51 @@ export const POSPage = () => {
             try {
                 const { supabase } = await import('../db/supabase');
                 if (supabase) {
-                    // Use the original sale timestamp for consistency
-                    // We send the ISO string directly, assuming Supabase handles it as UTC
-                    const { error } = await supabase.from('sales').insert([{
+                    const fullSaleData = {
                         total,
                         shipping_cost: shippingCost,
                         salesperson_name: currentUser.name,
                         payment_method: method,
                         items: cart,
-                        timestamp: sale.timestamp.toISOString()
-                    }]);
+                        timestamp: sale.timestamp.toISOString() // UTC ISO
+                    };
+
+                    console.log('[CLOUD] Intentando subir venta...', fullSaleData);
+
+                    // Attempt 1: Full Insert
+                    let { error } = await supabase.from('sales').insert([fullSaleData]);
+
+                    // Attempt 2: Fallback (Minimal) if Schema Mismatch
+                    if (error && (error.code === '42703' || error.message.includes('column'))) {
+                        console.warn("[CLOUD] Error de columnas. Reintentando con datos mínimos...", error);
+
+                        const minimalData = {
+                            total,
+                            items: cart,
+                            timestamp: sale.timestamp.toISOString()
+                        };
+
+                        const retry = await supabase.from('sales').insert([minimalData]);
+                        error = retry.error;
+
+                        if (!error) {
+                            alert("⚠️ AVISO: Venta sincronizada parcialmente. Faltan columnas en la base de datos (shipping_cost/salesperson). Informe al Admin.");
+                        }
+                    }
 
                     if (error) {
-                        console.error("Error syncing to cloud:", error);
+                        console.error("[CLOUD] Error final de sincronización:", error);
+                        // Alert User Explicitly
+                        alert(`⚠️ ALERTA: Venta guardada SOLO EN ESTE DISPOSITIVO.\n\nNo se pudo subir a la nube.\nError: ${error.message}\n\nSe intentará subir automáticamente después.`);
                     } else {
                         // If sync successful, mark as synced in local DB
                         await db.sales.update(id, { synced: true });
+                        console.log('[CLOUD] Venta sincronizada EXITOSAMENTE.');
                     }
                 }
-            } catch (err) {
-                console.error("Cloud sync failed:", err);
+            } catch (err: any) {
+                console.error("Cloud sync network error:", err);
+                alert(`⚠️ ERROR DE RED: No se pudo conectar a la nube. La venta se guardó localmente.`);
             }
 
         } catch (error) {
