@@ -1,7 +1,7 @@
 ﻿import { useState, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/db';
-import { syncAllData } from '../db/supabase';
+import { syncAllData, forcePushAllData } from '../db/supabase';
 import {
     Download,
     Trash2,
@@ -12,7 +12,7 @@ import {
     RefreshCw,
     MapPin,
     // Settings,
-    // Upload,
+    Upload,
     QrCode,
     Banknote,
     CreditCard,
@@ -53,19 +53,41 @@ export const BalancePage = () => {
     }, [debugMode]);
 
     const handleForceSync = async () => {
-        if (!confirm('¿Estás seguro de forzar la sincronización? Esto descargará datos de la nube.')) return;
+        if (!confirm('¿Estás seguro de forzar la sincronización (Descarga)? Esto descargará datos de la nube.')) return;
 
         setIsSyncing(true);
-        setSyncLog('⏳ Iniciando sincronización forzada...');
+        setSyncLog('⏳ Iniciando descarga forzada...');
         try {
             await syncAllData();
             const newCount = await db.sales.count();
             setLocalCount(newCount);
-            setSyncLog('✅ Sincronización Completada. Recargando...');
+            setSyncLog('✅ Descarga Completada. Recargando...');
             setTimeout(() => window.location.reload(), 1000);
         } catch (error: any) {
             console.error('Sync Error:', error);
             setSyncLog(`❌ Error: ${error.message || 'Desconocido'}`);
+        } finally {
+            setIsSyncing(false);
+        }
+    };
+
+    const handleForcePush = async () => {
+        if (!confirm('⚠️ ¿Estás seguro de forzar la SUBIDA? Esto enviará todos tus datos locales a la nube, sobrescribiendo lo que falte.')) return;
+
+        setIsSyncing(true);
+        setSyncLog('🚀 Iniciando subida masiva (Force Push)...');
+        try {
+            const result = await forcePushAllData();
+            if (result.success) {
+                setSyncLog(`✅ ÉXITO: ${result.message}`);
+                // Refresh local count just in case
+                const newCount = await db.sales.count();
+                setLocalCount(newCount);
+            } else {
+                setSyncLog(`❌ ERROR: ${result.message}`);
+            }
+        } catch (error: any) {
+            setSyncLog(`❌ Error Crítico: ${error.message}`);
         } finally {
             setIsSyncing(false);
         }
@@ -768,6 +790,14 @@ export const BalancePage = () => {
                             >
                                 {isSyncing ? <RefreshCw className="animate-spin" size={18} /> : <Database size={18} />}
                                 {isSyncing ? 'Sincronizando...' : 'Forzar Descarga'}
+                            </button>
+                            <button
+                                onClick={handleForcePush}
+                                disabled={isSyncing}
+                                className={`px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-2 transition-all ${isSyncing ? 'bg-zinc-700 text-zinc-500' : 'bg-purple-600 hover:bg-purple-500 text-white shadow-lg shadow-purple-500/20'}`}
+                            >
+                                <Upload size={18} />
+                                Forzar Subida Nube
                             </button>
                         </div>
                     </div>

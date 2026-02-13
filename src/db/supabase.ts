@@ -221,3 +221,79 @@ export const syncPendingSales = async () => {
         console.error('[SYNC] processPendingSales error:', err);
     }
 };
+// Force Push All Data (Brute Force Sync)
+export const forcePushAllData = async () => {
+    if (!supabase) return { success: false, message: 'Supabase no inicializado' };
+
+    try {
+        console.log('[FORCE PUSH] Iniciando subida masiva...');
+        const stats = { sales: 0, products: 0, expenses: 0, errors: [] as string[] };
+
+        // 1. SALES
+        const allSales = await db.sales.toArray();
+        if (allSales.length > 0) {
+            console.log(`[FORCE PUSH] Subiendo ${allSales.length} ventas...`);
+            const { error: salesError } = await supabase.from('sales').upsert(
+                allSales.map(s => ({
+                    id: s.id,
+                    total: s.total,
+                    shipping_cost: s.shippingCost,
+                    salesperson_name: s.salespersonName,
+                    payment_method: s.paymentMethod,
+                    items: s.items,
+                    timestamp: s.timestamp.toISOString()
+                }))
+            );
+            if (salesError) {
+                console.error('[FORCE PUSH] Error ventas:', salesError);
+                stats.errors.push(`Ventas: ${salesError.message}`);
+            } else {
+                stats.sales = allSales.length;
+            }
+        }
+
+        // 2. PRODUCTS
+        const allProducts = await db.products.toArray();
+        if (allProducts.length > 0) {
+            console.log(`[FORCE PUSH] Subiendo ${allProducts.length} productos...`);
+            const { error: prodError } = await supabase.from('products').upsert(allProducts);
+            if (prodError) {
+                console.error('[FORCE PUSH] Error productos:', prodError);
+                stats.errors.push(`Productos: ${prodError.message}`);
+            } else {
+                stats.products = allProducts.length;
+            }
+        }
+
+        // 3. EXPENSES (Try to sync if table exists)
+        const allExpenses = await db.expenses.toArray();
+        if (allExpenses.length > 0) {
+            console.log(`[FORCE PUSH] Subiendo ${allExpenses.length} gastos...`);
+            const { error: expError } = await supabase.from('expenses').upsert(
+                allExpenses.map(e => ({
+                    id: e.id,
+                    amount: e.amount,
+                    description: e.description,
+                    salesperson_id: e.salespersonId,
+                    timestamp: e.timestamp.toISOString()
+                }))
+            );
+            if (expError) {
+                console.warn('[FORCE PUSH] Error gastos (puede que no exista la tabla):', expError);
+                // Don't fail the whole sync for expenses
+            } else {
+                stats.expenses = allExpenses.length;
+            }
+        }
+
+        return {
+            success: stats.errors.length === 0,
+            message: `Subido: ${stats.sales} Ventas, ${stats.products} Productos. ${stats.errors.length > 0 ? 'Errores: ' + stats.errors.join(', ') : ''}`,
+            stats
+        };
+
+    } catch (error: any) {
+        console.error('[FORCE PUSH] Critical error:', error);
+        return { success: false, message: error.message };
+    }
+};
