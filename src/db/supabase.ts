@@ -235,7 +235,7 @@ export const initSupabase = async () => {
                     await db.expenses.delete(payload.old.id);
                 }
             })
-            .subscribe((status) => {
+            .subscribe((status: any) => {
                 console.log('[REALTIME] Expenses subscription status:', status);
             });
 
