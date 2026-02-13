@@ -233,11 +233,12 @@ export const forcePushAllData = async () => {
         const allSales = await db.sales.toArray();
         if (allSales.length > 0) {
             console.log(`[FORCE PUSH] Subiendo ${allSales.length} ventas...`);
+            // Remove shipping_cost as it seems to be missing in Supabase schema
             const { error: salesError } = await supabase.from('sales').upsert(
                 allSales.map(s => ({
                     id: s.id,
                     total: s.total,
-                    shipping_cost: s.shippingCost,
+                    // shipping_cost: s.shippingCost, // COMENTADO: Causa error de schema
                     salesperson_name: s.salespersonName,
                     payment_method: s.paymentMethod,
                     items: s.items,
@@ -256,10 +257,13 @@ export const forcePushAllData = async () => {
         const allProducts = await db.products.toArray();
         if (allProducts.length > 0) {
             console.log(`[FORCE PUSH] Subiendo ${allProducts.length} productos...`);
+            // Attempt standard upsert. If ID is IDENTITY GENERATED ALWAYS, this might fail.
             const { error: prodError } = await supabase.from('products').upsert(allProducts);
             if (prodError) {
                 console.error('[FORCE PUSH] Error productos:', prodError);
-                stats.errors.push(`Productos: ${prodError.message}`);
+                // If ID error, we might try omitting ID, but that breaks sync safely.
+                // For now, just report it but don't stop the process.
+                stats.errors.push(`Productos (Ignorado): ${prodError.message}`);
             } else {
                 stats.products = allProducts.length;
             }
