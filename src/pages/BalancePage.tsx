@@ -19,11 +19,13 @@ import {
     History as HistoryIcon,
     Calendar as CalendarIcon,
     Cloud,
-    Database
+    Database,
+    Plus
 } from 'lucide-react';
 import { usePOS } from '../context/POSContext';
 import { ReportService } from '../services/ReportService';
 import { formatTime } from '../utils/dateUtils';
+import { AddExpenseModal } from '../components/AddExpenseModal';
 
 export const BalancePage = () => {
     const { currentUser } = usePOS();
@@ -37,6 +39,7 @@ export const BalancePage = () => {
     const [localCount, setLocalCount] = useState<number>(0);
     const [debugMode, setDebugMode] = useState(false);
     const [debugSales, setDebugSales] = useState<any[]>([]);
+    const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
 
     useEffect(() => {
         db.sales.count().then(setLocalCount);
@@ -419,11 +422,21 @@ export const BalancePage = () => {
                     </div>
                 </div>
 
+
                 <div className="bg-zinc-900/50 p-6 rounded-3xl border border-zinc-800 backdrop-blur-sm relative overflow-hidden group hover:border-zinc-700 transition-all">
                     <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                         <Download size={80} className="text-red-500 rotate-180" />
                     </div>
-                    <p className="text-zinc-400 text-xs font-bold uppercase tracking-widest mb-2">Gastos Operativos</p>
+                    <div className="flex justify-between items-start mb-2">
+                        <p className="text-zinc-400 text-xs font-bold uppercase tracking-widest">Gastos Operativos</p>
+                        <button
+                            onClick={() => setIsExpenseModalOpen(true)}
+                            className="bg-red-500/10 hover:bg-red-500/20 text-red-500 p-2 rounded-lg transition-colors"
+                            title="Agregar Gasto"
+                        >
+                            <Plus size={16} strokeWidth={3} />
+                        </button>
+                    </div>
                     <p className="text-4xl font-black text-white tracking-tight">L {totalExpenses.toLocaleString('es-HN', { minimumFractionDigits: 2 })}</p>
                     <div className="mt-4 flex items-center gap-2 text-red-400 text-xs font-bold bg-red-500/10 w-fit px-3 py-1.5 rounded-full">
                         <span>{expenses?.length} registros</span>
@@ -1044,6 +1057,11 @@ export const BalancePage = () => {
                     )}
                 </div>
             </div>
+            {/* Expense Modal */}
+            <AddExpenseModal
+                isOpen={isExpenseModalOpen}
+                onClose={() => setIsExpenseModalOpen(false)}
+            />
         </div>
     );
 };
