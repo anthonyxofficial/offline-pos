@@ -411,7 +411,7 @@ export const BalancePage = () => {
             {/* Main Stats Grid */}
             <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
                 <div className="bg-zinc-900/50 p-6 rounded-3xl border border-zinc-800 backdrop-blur-sm relative overflow-hidden group hover:border-zinc-700 transition-all">
-                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity pointer-events-none">
                         <Banknote size={80} className="text-emerald-500" />
                     </div>
                     <p className="text-zinc-400 text-xs font-bold uppercase tracking-widest mb-2">Ingresos por Ventas</p>
@@ -424,7 +424,7 @@ export const BalancePage = () => {
 
 
                 <div className="bg-zinc-900/50 p-6 rounded-3xl border border-zinc-800 backdrop-blur-sm relative overflow-hidden group hover:border-zinc-700 transition-all">
-                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity pointer-events-none">
                         <Download size={80} className="text-red-500 rotate-180" />
                     </div>
                     <div className="flex justify-between items-start mb-2">
