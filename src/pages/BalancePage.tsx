@@ -1,5 +1,4 @@
-
-import { useState } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, type User } from '../db/db';
 import { supabase, syncAllData } from '../db/supabase';
@@ -18,7 +17,7 @@ export const BalancePage = () => {
 
     const handleAddUser = async () => {
         if (!newUser.name || !newUser.pin) return alert('Nombre y PIN requeridos');
-        if (newUser.pin.length < 4) return alert('El PIN debe tener 4 dígitos');
+        if (newUser.pin.length < 4) return alert('El PIN debe tener 4 dÃ­gitos');
 
         await db.users.add(newUser);
         setNewUser({ name: '', pin: '', role: 'sales' });
@@ -27,7 +26,7 @@ export const BalancePage = () => {
 
     const handleDeleteUser = async (id: number) => {
         if (id === currentUser?.id) return alert('No puedes eliminar tu propio usuario');
-        if (confirm('¿Estás seguro de eliminar este usuario?')) {
+        if (confirm('Â¿EstÃ¡s seguro de eliminar este usuario?')) {
             await db.users.delete(id);
         }
     };
@@ -127,27 +126,32 @@ export const BalancePage = () => {
 
     const saveWhatsappNumber = async () => {
         await db.table('settings').put({ key: 'whatsapp_number', value: whatsappNumber });
-        alert('✅ Número de WhatsApp guardado');
+        alert('âœ… NÃºmero de WhatsApp guardado');
     };
 
     const saveSupabaseConfig = async () => {
         await db.table('settings').put({ key: 'supabase_url', value: supabaseUrl });
         await db.table('settings').put({ key: 'supabase_key', value: supabaseKey });
-        alert('✅ Configuración de Supabase guardada. Reiniciando para conectar...');
+        alert('âœ… ConfiguraciÃ³n de Supabase guardada. Reiniciando para conectar...');
         window.location.reload();
     };
 
     const [isSyncing, setIsSyncing] = useState(false);
     const [syncLog, setSyncLog] = useState<string>('');
+    const [localCount, setLocalCount] = useState<number>(0);
+
+    useEffect(() => {
+        db.sales.count().then(setLocalCount);
+    }, []);
 
     const handleForceSync = async () => {
-        if (!confirm('¿Estás seguro de forzar la sincronización? Esto descargará datos de la nube.')) return;
+        if (!confirm('Â¿EstÃ¡s seguro de forzar la sincronizaciÃ³n? Esto descargarÃ¡ datos de la nube.')) return;
 
         setIsSyncing(true);
-        setSyncLog('⏳ Conectando con Supabase...');
+        setSyncLog('â³ Conectando con Supabase...');
         try {
             if (!supabase) {
-                setSyncLog('❌ Error: Supabase no inicializado. Revisa la configuración.');
+                setSyncLog('âŒ Error: Supabase no inicializado. Revisa la configuraciÃ³n.');
                 return;
             }
 
@@ -155,14 +159,16 @@ export const BalancePage = () => {
             const { count, error } = await supabase.from('sales').select('*', { count: 'exact', head: true });
             if (error) throw error;
 
-            setSyncLog(`✅ Conexión Exitosa. Ventas en Nube: ${count}. Sincronizando...`);
+            setSyncLog(`âœ… ConexiÃ³n Exitosa. Ventas en Nube: ${count}. Sincronizando...`);
 
             await syncAllData();
-            setSyncLog('✅ Sincronización Completada. Recargando...');
+            const newCount = await db.sales.count();
+            setLocalCount(newCount);
+            setSyncLog('âœ… SincronizaciÃ³n Completada. Recargando...');
             setTimeout(() => window.location.reload(), 1000);
         } catch (err: any) {
             console.error(err);
-            setSyncLog(`❌ Error: ${err.message}`);
+            setSyncLog(`âŒ Error: ${err.message}`);
         } finally {
             setIsSyncing(false);
         }
@@ -340,7 +346,7 @@ export const BalancePage = () => {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        if (!confirm('Esta acción reemplazará todos los datos actuales. ¿Deseas continuar?')) return;
+        if (!confirm('Esta acciÃ³n reemplazarÃ¡ todos los datos actuales. Â¿Deseas continuar?')) return;
 
         const reader = new FileReader();
         reader.onload = async (event) => {
@@ -364,23 +370,29 @@ export const BalancePage = () => {
                     const formattedExp = data.expenses.map((e: any) => ({ ...e, timestamp: new Date(e.timestamp) }));
                     await db.expenses.bulkAdd(formattedExp);
                 }
-                alert('✅ Datos importados correctamente');
+                alert('âœ… Datos importados correctamente');
                 window.location.reload();
             } catch (err) {
                 console.error(err);
-                alert('❌ Error al importar el archivo. Formato no válido.');
+                alert('âŒ Error al importar el archivo. Formato no vÃ¡lido.');
             }
         };
         reader.readAsText(file);
     };
 
     const setToday = () => {
-        setCustomDate(new Date().toISOString().split('T')[0]);
+        // Use standard date formatter to get local YYYY-MM-DD
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+        // Manual construction to avoid timezone shifts
+        setCustomDate(`${year}-${month}-${day}`);
     };
 
     return (
         <div className="pb-20">
-            {/* VISTA WEB / MÓVIL (NO-PRINT) */}
+            {/* VISTA WEB / MÃ“VIL (NO-PRINT) */}
             <div className="no-print space-y-6">
                 {/* Header - Mobile Optimized */}
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center sticky top-0 bg-zinc-950/80 backdrop-blur-sm z-10 py-3 gap-3">
@@ -424,9 +436,9 @@ export const BalancePage = () => {
                     <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-3xl animate-fade-in space-y-4 shadow-2xl">
                         <div className="flex items-center gap-2 mb-2">
                             <History size={18} className="text-zinc-500" />
-                            <h3 className="font-bold text-white uppercase text-xs tracking-widest">Sincronización Manual</h3>
+                            <h3 className="font-bold text-white uppercase text-xs tracking-widest">SincronizaciÃ³n Manual</h3>
                         </div>
-                        <p className="text-zinc-400 text-sm mb-4">Como esta es una App Offline, para pasar tus datos de la PC al Celular debes exportar el archivo aquí e importarlo en el otro dispositivo.</p>
+                        <p className="text-zinc-400 text-sm mb-4">Como esta es una App Offline, para pasar tus datos de la PC al Celular debes exportar el archivo aquÃ­ e importarlo en el otro dispositivo.</p>
                         <div className="grid grid-cols-2 gap-4">
                             <button
                                 onClick={handleExport}
@@ -450,7 +462,7 @@ export const BalancePage = () => {
                             <div className="flex gap-2">
                                 <input
                                     type="text"
-                                    placeholder="Número (ej. 50499887766)"
+                                    placeholder="NÃºmero (ej. 50499887766)"
                                     className="flex-1 bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-zinc-500 text-sm"
                                     value={whatsappNumber}
                                     onChange={(e) => setWhatsappNumber(e.target.value)}
@@ -467,7 +479,7 @@ export const BalancePage = () => {
                         <div className="pt-4 border-t border-zinc-800 mt-4 space-y-4">
                             <div className="flex items-center gap-2 mb-2">
                                 <History size={18} className="text-blue-500" />
-                                <h3 className="font-bold text-white uppercase text-xs tracking-widest">Sincronización en la Nube (Supabase)</h3>
+                                <h3 className="font-bold text-white uppercase text-xs tracking-widest">SincronizaciÃ³n en la Nube (Supabase)</h3>
                             </div>
                             <div className="space-y-3">
                                 <div>
@@ -531,7 +543,7 @@ export const BalancePage = () => {
                                         onClick={() => setFilterType(type)}
                                         className={`flex-1 py-1.5 text-[10px] font-black uppercase rounded-lg transition-all ${filterType === type ? 'bg-zinc-900 text-white shadow-md' : 'text-zinc-500 hover:text-zinc-900'}`}
                                     >
-                                        {type === 'daily' ? 'Día' : type === 'weekly' ? 'Semana' : type === 'biweekly' ? 'Quincena' : 'Mes'}
+                                        {type === 'daily' ? 'DÃ­a' : type === 'weekly' ? 'Semana' : type === 'biweekly' ? 'Quincena' : 'Mes'}
                                     </button>
                                 ))}
                             </div>
@@ -616,7 +628,7 @@ export const BalancePage = () => {
                                 />
                                 <input
                                     type="text"
-                                    placeholder="¿En qué se gastó?"
+                                    placeholder="Â¿En quÃ© se gastÃ³?"
                                     value={expenseDesc}
                                     onChange={(e) => setExpenseDesc(e.target.value)}
                                     className="w-full bg-zinc-950 border border-zinc-800 px-4 py-2 rounded-xl text-white text-sm focus:outline-none focus:border-zinc-500"
@@ -637,7 +649,7 @@ export const BalancePage = () => {
                     <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-3xl">
                         <div className="flex items-center gap-2 mb-4">
                             <History size={18} className="text-zinc-500" />
-                            <h3 className="font-bold text-white uppercase text-xs tracking-widest">Lo más vendido (Marcas)</h3>
+                            <h3 className="font-bold text-white uppercase text-xs tracking-widest">Lo mÃ¡s vendido (Marcas)</h3>
                         </div>
                         <div className="space-y-3">
                             {topBrands.length === 0 ? (
@@ -664,7 +676,7 @@ export const BalancePage = () => {
                     <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-3xl">
                         <div className="flex items-center gap-2 mb-4">
                             <History size={18} className="text-zinc-500" />
-                            <h3 className="font-bold text-white uppercase text-xs tracking-widest">Tallas más buscadas</h3>
+                            <h3 className="font-bold text-white uppercase text-xs tracking-widest">Tallas mÃ¡s buscadas</h3>
                         </div>
                         <div className="space-y-3">
                             {topSizes.length === 0 ? (
@@ -694,7 +706,7 @@ export const BalancePage = () => {
                     {/* Top Products by Revenue */}
                     <div className="bg-gradient-to-br from-emerald-900/20 to-zinc-900 border border-emerald-800/30 p-6 rounded-3xl">
                         <div className="flex items-center gap-2 mb-4">
-                            <span className="text-lg">🏆</span>
+                            <span className="text-lg">ðŸ†</span>
                             <h3 className="font-bold text-white uppercase text-xs tracking-widest">Top por Ingresos</h3>
                         </div>
                         <div className="space-y-3">
@@ -719,7 +731,7 @@ export const BalancePage = () => {
                     {/* Seller Performance */}
                     <div className="bg-gradient-to-br from-blue-900/20 to-zinc-900 border border-blue-800/30 p-6 rounded-3xl">
                         <div className="flex items-center gap-2 mb-4">
-                            <span className="text-lg">👤</span>
+                            <span className="text-lg">ðŸ‘¤</span>
                             <h3 className="font-bold text-white uppercase text-xs tracking-widest">Rendimiento Vendedor</h3>
                         </div>
                         <div className="space-y-3">
@@ -753,8 +765,8 @@ export const BalancePage = () => {
                     {/* Low Stock Alert */}
                     <div className={`bg-gradient-to-br ${lowStockProducts.length > 0 ? 'from-red-900/30 to-zinc-900 border-red-800/50' : 'from-zinc-900 to-zinc-900 border-zinc-800'} border p-6 rounded-3xl`}>
                         <div className="flex items-center gap-2 mb-4">
-                            <span className="text-lg">{lowStockProducts.length > 0 ? '⚠️' : '✅'}</span>
-                            <h3 className="font-bold text-white uppercase text-xs tracking-widest">Stock Crítico</h3>
+                            <span className="text-lg">{lowStockProducts.length > 0 ? 'âš ï¸' : 'âœ…'}</span>
+                            <h3 className="font-bold text-white uppercase text-xs tracking-widest">Stock CrÃ­tico</h3>
                             {lowStockProducts.length > 0 && (
                                 <span className="ml-auto bg-red-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full animate-pulse">
                                     {lowStockProducts.length}
@@ -763,7 +775,7 @@ export const BalancePage = () => {
                         </div>
                         <div className="space-y-2 max-h-[200px] overflow-y-auto">
                             {lowStockProducts.length === 0 ? (
-                                <p className="text-emerald-500 text-sm font-medium">¡Todo el inventario está bien!</p>
+                                <p className="text-emerald-500 text-sm font-medium">Â¡Todo el inventario estÃ¡ bien!</p>
                             ) : (
                                 lowStockProducts.slice(0, 5).map((product) => (
                                     <div key={product.id} className="flex items-center justify-between p-2 bg-red-950/30 rounded-lg border border-red-900/30">
@@ -775,7 +787,7 @@ export const BalancePage = () => {
                                 ))
                             )}
                             {lowStockProducts.length > 5 && (
-                                <p className="text-zinc-500 text-xs text-center pt-2">+ {lowStockProducts.length - 5} productos más</p>
+                                <p className="text-zinc-500 text-xs text-center pt-2">+ {lowStockProducts.length - 5} productos mÃ¡s</p>
                             )}
                         </div>
                     </div>
@@ -786,7 +798,7 @@ export const BalancePage = () => {
                     <div className="bg-zinc-900/50 border border-zinc-800 p-6 rounded-3xl">
                         <div className="flex items-center justify-between mb-4">
                             <div className="flex items-center gap-2">
-                                <span className="text-lg">😴</span>
+                                <span className="text-lg">ðŸ˜´</span>
                                 <h3 className="font-bold text-white uppercase text-xs tracking-widest">Productos Sin Ventas Hoy</h3>
                             </div>
                             <span className="text-zinc-500 text-xs">{dormantProducts.length} productos</span>
@@ -799,7 +811,7 @@ export const BalancePage = () => {
                             ))}
                             {dormantProducts.length > 10 && (
                                 <span className="text-xs bg-zinc-800 text-zinc-500 px-3 py-1.5 rounded-lg">
-                                    +{dormantProducts.length - 10} más
+                                    +{dormantProducts.length - 10} mÃ¡s
                                 </span>
                             )}
                         </div>
@@ -839,14 +851,14 @@ export const BalancePage = () => {
                                                     </span>
                                                 </div>
                                                 <p className="text-[10px] text-zinc-500 font-medium flex items-center gap-2">
-                                                    <span>{sale.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • <span className="italic">Por {sale.salespersonName}</span></span>
+                                                    <span>{sale.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} â€¢ <span className="italic">Por {sale.salespersonName}</span></span>
                                                     {sale.location && (
                                                         <a
                                                             href={`https://www.google.com/maps?q=${sale.location.lat},${sale.location.lng}`}
                                                             target="_blank"
                                                             rel="noopener noreferrer"
                                                             className="flex items-center gap-1 text-indigo-500 hover:text-indigo-400 bg-indigo-500/10 px-1.5 py-0.5 rounded-full transition-colors"
-                                                            title="Ver ubicación de venta"
+                                                            title="Ver ubicaciÃ³n de venta"
                                                             onClick={(e) => e.stopPropagation()}
                                                         >
                                                             <MapPin size={10} />
@@ -901,7 +913,7 @@ export const BalancePage = () => {
                 </div>
             </div>
 
-            {/* SECCIÓN DE SEGURIDAD Y USUARIOS */}
+            {/* SECCIÃ“N DE SEGURIDAD Y USUARIOS */}
             <div className="max-w-7xl mx-auto px-6 pb-20">
                 <div className="bg-zinc-900/50 border border-zinc-800 rounded-3xl overflow-hidden">
                     <div className="p-6 border-b border-zinc-800 flex justify-between items-center bg-zinc-900/80">
@@ -910,8 +922,8 @@ export const BalancePage = () => {
                                 <Shield size={24} />
                             </div>
                             <div>
-                                <h3 className="text-xl font-black text-white tracking-tight">Gestión de Accesos</h3>
-                                <p className="text-zinc-400 text-xs font-medium">Controla quién puede vender y acceder al sistema</p>
+                                <h3 className="text-xl font-black text-white tracking-tight">GestiÃ³n de Accesos</h3>
+                                <p className="text-zinc-400 text-xs font-medium">Controla quiÃ©n puede vender y acceder al sistema</p>
                             </div>
                         </div>
                         <button
@@ -940,12 +952,12 @@ export const BalancePage = () => {
                                                 <div>
                                                     <p className="font-bold text-white flex items-center gap-2">
                                                         {user.name}
-                                                        {user.id === currentUser?.id && <span className="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full">TÚ</span>}
+                                                        {user.id === currentUser?.id && <span className="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full">TÃš</span>}
                                                     </p>
                                                     <div className="flex items-center gap-2 text-xs text-zinc-500 font-medium">
                                                         <span className={`w-2 h-2 rounded-full ${user.role === 'admin' ? 'bg-amber-400' : 'bg-emerald-400'}`} />
                                                         <span className="uppercase">{user.role}</span>
-                                                        <span className="text-zinc-700 mx-1">•</span>
+                                                        <span className="text-zinc-700 mx-1">â€¢</span>
                                                         <span>{user.lastActive ? new Date(user.lastActive).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Nunca'}</span>
                                                     </div>
                                                 </div>
@@ -979,13 +991,13 @@ export const BalancePage = () => {
                                         <input
                                             type="text"
                                             className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white font-bold focus:outline-none focus:border-indigo-500 transition-all"
-                                            placeholder="Ej. Juan Pérez"
+                                            placeholder="Ej. Juan PÃ©rez"
                                             value={newUser.name}
                                             onChange={e => setNewUser({ ...newUser, name: e.target.value })}
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-xs font-bold text-zinc-500 mb-1">PIN de Acceso (4 dígitos)</label>
+                                        <label className="block text-xs font-bold text-zinc-500 mb-1">PIN de Acceso (4 dÃ­gitos)</label>
                                         <div className="relative">
                                             <input
                                                 type="text"
@@ -1028,7 +1040,7 @@ export const BalancePage = () => {
                 </div>
             </div>
 
-            {/* VISTA DE IMPRESIÓN EMPRESARIAL (PURA TABLA) */}
+            {/* VISTA DE IMPRESIÃ“N EMPRESARIAL (PURA TABLA) */}
             <div className="print-only">
                 <div className="mb-10 text-center border-b-4 border-black pb-6">
                     <h1 className="text-4xl font-black uppercase tracking-tighter mb-2">PA LOS PIES - Sneakers POS</h1>
@@ -1063,8 +1075,8 @@ export const BalancePage = () => {
                                     <th>ID</th>
                                     <th>Hora</th>
                                     <th>Vendedor</th>
-                                    <th>Método</th>
-                                    <th>Artículos</th>
+                                    <th>MÃ©todo</th>
+                                    <th>ArtÃ­culos</th>
                                     <th>Total</th>
                                 </tr>
                             </thead>
@@ -1089,7 +1101,7 @@ export const BalancePage = () => {
                         <table>
                             <thead>
                                 <tr>
-                                    <th>Descripción</th>
+                                    <th>DescripciÃ³n</th>
                                     <th>Hora</th>
                                     <th>Monto</th>
                                 </tr>
@@ -1139,7 +1151,7 @@ export const BalancePage = () => {
                                         <th className="px-4 py-3 rounded-l-xl">ID</th>
                                         <th className="px-4 py-3">Hora</th>
                                         <th className="px-4 py-3">Monto</th>
-                                        <th className="px-4 py-3 rounded-r-xl">Método</th>
+                                        <th className="px-4 py-3 rounded-r-xl">MÃ©todo</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-zinc-800">
@@ -1225,8 +1237,10 @@ export const BalancePage = () => {
                                 <Cloud size={24} />
                             </div>
                             <div>
-                                <h3 className="text-xl font-black text-white">Sincronización Nube</h3>
-                                <p className="text-blue-200 text-xs">Diagnóstico y Descarga de Datos</p>
+                                <h3 className="text-xl font-black text-white">SincronizaciÃ³n Nube</h3>
+                                <p className="text-blue-200 text-xs">
+                                    DiagnÃ³stico y Descarga | <span className="text-white font-bold">BD Local: {localCount} ventas</span>
+                                </p>
                             </div>
                         </div>
                         <button
