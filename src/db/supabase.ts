@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { db } from './db';
 
 // These will be loaded from the local database 'settings' table or env variables
@@ -254,7 +254,8 @@ export const syncNow = async () => {
 };
 
 export const syncExpenses = async () => {
-    if (!supabase) return;
+    const client = supabase as SupabaseClient;
+    if (!client) return;
     try {
         console.log('[SYNC] Syncing Expenses...');
 
@@ -262,7 +263,7 @@ export const syncExpenses = async () => {
         const pendingExpenses = await db.expenses.filter(e => !((e as any).synced)).toArray();
         if (pendingExpenses.length > 0) {
             console.log(`[SYNC] Pushing ${pendingExpenses.length} pending expenses...`);
-            const { error } = await supabase.from('expenses').upsert(
+            const { error } = await client.from('expenses').upsert(
                 pendingExpenses.map(e => ({
                     id: e.id,
                     amount: e.amount,
@@ -283,9 +284,8 @@ export const syncExpenses = async () => {
             }
         }
 
-        // 2. Pull Recent Expenses (Last 30 days or simply all if not too many)
-        // Let's pull last 100 expenses for now
-        const { data: cloudExpenses, error: pullError } = await supabase
+        // 2. Pull Recent Expenses
+        const { data: cloudExpenses } = await client
             .from('expenses')
             .select('*')
             .order('timestamp', { ascending: false })
