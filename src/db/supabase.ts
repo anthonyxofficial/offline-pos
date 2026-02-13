@@ -229,43 +229,87 @@ export const forcePushAllData = async () => {
         console.log('[FORCE PUSH] Iniciando subida masiva...');
         const stats = { sales: 0, products: 0, expenses: 0, errors: [] as string[] };
 
-        // 1. SALES
+        // 1. SALES (Smart Sync by Timestamp)
         const allSales = await db.sales.toArray();
         if (allSales.length > 0) {
-            console.log(`[FORCE PUSH] Subiendo ${allSales.length} ventas...`);
-            // Remove shipping_cost as it seems to be missing in Supabase schema
-            const { error: salesError } = await supabase.from('sales').upsert(
-                allSales.map(s => ({
-                    id: s.id,
-                    total: s.total,
-                    // shipping_cost: s.shippingCost, // COMENTADO: Causa error de schema
-                    salesperson_name: s.salespersonName,
-                    payment_method: s.paymentMethod,
-                    items: s.items,
-                    timestamp: s.timestamp.toISOString()
-                }))
-            );
-            if (salesError) {
-                console.error('[FORCE PUSH] Error ventas:', salesError);
-                stats.errors.push(`Ventas: ${salesError.message}`);
+            console.log(`[FORCE PUSH] Verificando ${allSales.length} ventas locales...`);
+
+            // Get existing cloud timestamps to avoid duplicates
+            const { data: cloudSales, error: fetchError } = await supabase
+                .from('sales')
+                .select('timestamp');
+
+            if (fetchError) throw new Error(`Error verificando ventas: ${fetchError.message}`);
+
+            const cloudTimestamps = new Set(cloudSales?.map((s: any) => new Date(s.timestamp).getTime()));
+
+            // Filter sales that are NOT in cloud (fuzzy match 1000ms to allow small diffs if any)
+            const salesToPush = allSales.filter(local => {
+                const localTime = local.timestamp.getTime();
+                // Check if any cloud timestamp is within 100ms
+                // Simpler: Just check exact ISO string match or Set lookup if precise
+                // For safety, let's try strict ISO string first, if that fails we might need range
+                // But usually timestamp strings are preserved.
+                // Let's rely on the Set lookup of getTime() for now.
+                return !cloudTimestamps.has(localTime);
+            });
+
+            if (salesToPush.length > 0) {
+                console.log(`[FORCE PUSH] Insertando ${salesToPush.length} ventas nuevas...`);
+                // Insert WITHOUT ID (Let Supabase generate it)
+                const { error: insertError } = await supabase.from('sales').insert(
+                    salesToPush.map(s => ({
+                        // id: s.id, // OMIT ID
+                        total: s.total,
+                        // shipping_cost: s.shippingCost, // OMIT due to schema error
+                        salesperson_name: s.salespersonName,
+                        payment_method: s.paymentMethod,
+                        items: s.items,
+                        timestamp: s.timestamp.toISOString()
+                    }))
+                );
+
+                if (insertError) {
+                    stats.errors.push(`Ventas: ${insertError.message}`);
+                } else {
+                    stats.sales = salesToPush.length;
+                    // Mark as synced locally? The boolean flag isn't strictly used but good practice
+                    // await db.sales.bulkPut(salesToPush.map(s => ({ ...s, synced: true }))); 
+                }
             } else {
-                stats.sales = allSales.length;
+                console.log('[FORCE PUSH] Todas las ventas ya existen en la nube.');
             }
         }
 
-        // 2. PRODUCTS
+        // 2. PRODUCTS (Smart Sync by Name)
         const allProducts = await db.products.toArray();
         if (allProducts.length > 0) {
-            console.log(`[FORCE PUSH] Subiendo ${allProducts.length} productos...`);
-            // Attempt standard upsert. If ID is IDENTITY GENERATED ALWAYS, this might fail.
-            const { error: prodError } = await supabase.from('products').upsert(allProducts);
-            if (prodError) {
-                console.error('[FORCE PUSH] Error productos:', prodError);
-                // If ID error, we might try omitting ID, but that breaks sync safely.
-                // For now, just report it but don't stop the process.
-                stats.errors.push(`Productos (Ignorado): ${prodError.message}`);
-            } else {
-                stats.products = allProducts.length;
+            console.log(`[FORCE PUSH] Verificando ${allProducts.length} productos...`);
+
+            const { data: cloudProducts } = await supabase.from('products').select('name');
+            const cloudNames = new Set(cloudProducts?.map((p: any) => p.name));
+
+            const productsToPush = allProducts.filter(p => !cloudNames.has(p.name));
+
+            if (productsToPush.length > 0) {
+                console.log(`[FORCE PUSH] Insertando ${productsToPush.length} productos nuevos...`);
+                const { error: prodError } = await supabase.from('products').insert(
+                    productsToPush.map(p => ({
+                        // id: p.id, // OMIT ID
+                        name: p.name,
+                        price: p.price,
+                        image: p.image,
+                        category: p.category,
+                        size: p.size,
+                        brand: p.brand,
+                        stock: p.stock
+                    }))
+                );
+                if (prodError) {
+                    stats.errors.push(`Productos: ${prodError.message}`);
+                } else {
+                    stats.products = productsToPush.length;
+                }
             }
         }
 
