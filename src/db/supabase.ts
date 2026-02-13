@@ -67,6 +67,49 @@ export const syncAllData = async () => {
     return { sales: sales?.length || 0, products: products?.length || 0 };
 };
 
+// Sync recent sales (polling fallback)
+export const syncRecentSales = async () => {
+    if (!supabase) return;
+    try {
+        // Fetch last 50 sales to ensure recent data is synced across devices
+        const { data: recentSales } = await supabase
+            .from('sales')
+            .select('*')
+            .order('timestamp', { ascending: false })
+            .limit(50);
+
+        if (recentSales && recentSales.length > 0) {
+            console.log(`[POLLING] Checking ${recentSales.length} recent sales...`);
+            await db.transaction('rw', db.sales, async () => {
+                for (const s of recentSales) {
+                    const exists = await db.sales.get(s.id);
+                    // Only update if missing or different/unsynced?
+                    // For simplicity and robustness, we upsert.
+                    // But we must preserve 'synced' status if we are the ones who sent it?
+                    // Actually, if it comes from cloud, it IS synced.
+                    if (!exists || !exists.synced) {
+                        // Logic: if local exists and is !synced, it's a pending change?
+                        // Conflict resolution: Cloud wins for simple POS? 
+                        // If we are polling, we assume cloud is truth.
+                        // But if we have a pending local sale with same ID? (Unlikely with auto-increment unless matched).
+                        // Let's just upsert standard fields.
+                        await db.sales.put({
+                            ...s,
+                            timestamp: new Date(s.timestamp),
+                            paymentMethod: s.payment_method,
+                            salespersonName: s.salesperson_name,
+                            id: s.id,
+                            synced: true // It came from cloud, so it is synced
+                        } as any);
+                    }
+                }
+            });
+        }
+    } catch (err) {
+        console.error('[POLLING] Error syncing recent sales:', err);
+    }
+};
+
 export const initSupabase = async () => {
     const config = await getSupabaseConfig();
     if (config.url && config.key) {
@@ -84,19 +127,18 @@ export const initSupabase = async () => {
                         timestamp: new Date(newSale.timestamp),
                         paymentMethod: newSale.payment_method,
                         salespersonName: newSale.salesperson_name,
-                        id: newSale.id as number
+                        id: newSale.id as number,
+                        synced: true
                     } as any);
                 }
             })
             .subscribe();
 
-        // Setup Realtime Subscriptions for Products (including size, stock, etc.)
+        // Setup Realtime Subscriptions for Products
         supabase.channel('public:products')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, async (payload: any) => {
-                console.log('[REALTIME] Product change:', payload.eventType, payload.new?.id || payload.old?.id);
                 if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
                     const product = payload.new;
-                    // Ensure all fields are synced including size
                     await db.products.put({
                         id: product.id,
                         name: product.name,
@@ -113,51 +155,10 @@ export const initSupabase = async () => {
             })
             .subscribe();
 
-        // Setup Realtime Subscriptions for Sales
-        supabase.channel('public:sales')
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'sales' }, async (payload: any) => {
-                const newSale = payload.new;
-                // Check if already exists in Dexie to avoid duplicates
-                const exists = await db.sales.get(newSale.id as number);
-                if (!exists) {
-                    await db.sales.put({
-                        ...newSale,
-                        timestamp: new Date(newSale.timestamp),
-                        paymentMethod: newSale.payment_method,
-                        salespersonName: newSale.salesperson_name,
-                        id: newSale.id as number
-                    } as any);
-                }
-            })
-            .subscribe();
-
-        // Setup Realtime Subscriptions for Products (including size, stock, etc.)
-        supabase.channel('public:products')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, async (payload: any) => {
-                console.log('[REALTIME] Product change:', payload.eventType, payload.new?.id || payload.old?.id);
-                if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-                    const product = payload.new;
-                    // Ensure all fields are synced including size
-                    await db.products.put({
-                        id: product.id,
-                        name: product.name,
-                        price: product.price,
-                        category: product.category,
-                        brand: product.brand,
-                        size: product.size,
-                        stock: product.stock,
-                        image: product.image
-                    });
-                } else if (payload.eventType === 'DELETE') {
-                    await db.products.delete(payload.old.id);
-                }
-            })
-            .subscribe();
-
-        // Initial Sync (Bring local up to date)
+        // Initial Sync
         await syncAllData();
 
-        // Periodic sync every 30 seconds
+        // Periodic sync every 20 seconds (More frequent for sales)
         setInterval(async () => {
             try {
                 // 1. Pull Products
@@ -166,13 +167,16 @@ export const initSupabase = async () => {
                     await db.products.bulkPut(products);
                 }
 
-                // 2. Push Pending Sales (Offline Sync)
+                // 2. Push Pending Sales
                 await syncPendingSales();
+
+                // 3. Pull Recent Sales (The Fix)
+                await syncRecentSales();
 
             } catch (err) {
                 console.error('[SYNC] Periodic sync error:', err);
             }
-        }, 30000);
+        }, 20000);
 
         // Run one sync immediately
         await syncPendingSales();
