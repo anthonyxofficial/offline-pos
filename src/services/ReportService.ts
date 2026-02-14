@@ -24,122 +24,208 @@ export class ReportService {
         return `L ${amount.toFixed(2)}`;
     }
 
+    private static async loadImage(url: string): Promise<string> {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.src = url;
+            img.crossOrigin = "Anonymous";
+            img.onload = () => {
+                const canvas = document.createElement("canvas");
+                canvas.width = img.width;
+                canvas.height = img.height;
+                const ctx = canvas.getContext("2d");
+                if (!ctx) return reject("Canvas context error");
+                ctx.drawImage(img, 0, 0);
+                resolve(canvas.toDataURL("image/png"));
+            };
+            img.onerror = reject;
+        });
+    }
+
     static async generateBalancePDF(data: ReportData) {
         const doc = new jsPDF();
         const { startDate, endDate, sales, expenses, totalSales, totalExpenses, netProfit } = data;
         const pageWidth = doc.internal.pageSize.width;
+        const pageHeight = doc.internal.pageSize.height;
+
+        // --- LOAD ASSETS ---
+        let logoData = null;
+        try {
+            // Attempt to load logo from public assets or import
+            // Assuming logo is available at /logo.png or similar. 
+            // In Vite, we might need to pass the imported string.
+            // For now, let's try a standard path or base64 placeholder if needed.
+            // If the user has a logo file, we should use it. 
+            logoData = await this.loadImage('/logo.png').catch(() => null);
+        } catch (e) {
+            console.warn("Could not load logo for PDF", e);
+        }
 
         // --- HEADER ---
+        // Brand Color: #8b5cf6 (Violet-500) -> [139, 92, 246]
+        // Background Header
+        doc.setFillColor(15, 23, 42); // Slate-900
+        doc.rect(0, 0, pageWidth, 40, 'F');
+
+        // Logo
+        if (logoData) {
+            doc.addImage(logoData, 'PNG', 14, 8, 24, 24);
+        }
+
+        // Title
+        doc.setFont('helvetica', 'bold');
         doc.setFontSize(22);
-        doc.setFont('helvetica', 'bold');
-        doc.text('Reporte de Balance', pageWidth / 2, 20, { align: 'center' });
+        doc.setTextColor(255, 255, 255);
+        doc.text('REPORTE FINANCIERO', logoData ? 45 : 14, 20);
 
-        doc.setFontSize(12);
+        doc.setFontSize(10);
         doc.setFont('helvetica', 'normal');
-        doc.text('POS Offline - Sneaker Store', pageWidth / 2, 28, { align: 'center' });
+        doc.setTextColor(148, 163, 184); // Slate-400
+        doc.text('POS Offline | Sneaker Store', logoData ? 45 : 14, 26);
+        doc.text(`Generado: ${formatDateTime(new Date())}`, logoData ? 45 : 14, 32);
 
-        doc.setFontSize(10);
-        doc.setTextColor(100);
-        doc.text(`Generado el: ${this.formatDate(new Date())}`, pageWidth / 2, 34, { align: 'center' });
-        doc.text(`Período: ${this.formatDate(startDate)} - ${this.formatDate(endDate)}`, pageWidth / 2, 39, { align: 'center' });
-        doc.setTextColor(0);
+        // Date Range Badge
+        doc.setFillColor(139, 92, 246); // Violet-500
+        doc.roundedRect(pageWidth - 75, 12, 61, 16, 2, 2, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(9);
+        doc.setFont('courier', 'bold');
+        doc.text(`${this.formatDate(startDate)}`, pageWidth - 45, 18, { align: 'center' });
+        doc.text('AL', pageWidth - 45, 22, { align: 'center' });
+        doc.text(`${this.formatDate(endDate)}`, pageWidth - 45, 26, { align: 'center' });
 
-        // --- FINANCIAL SUMMARY ---
-        let yPos = 50;
 
-        doc.setDrawColor(200);
-        doc.setFillColor(245, 247, 250);
-        doc.roundedRect(14, yPos, pageWidth - 28, 30, 3, 3, 'FD');
+        // --- EXECUTIVE SUMMARY (CARDS) ---
+        let yPos = 55;
+        const cardWidth = (pageWidth - 28 - 10) / 3; // 3 Cards with gap
+        const cardHeight = 25;
 
-        doc.setFontSize(10);
-        doc.setTextColor(100);
-        doc.text('VENTAS TOTALES', 30, yPos + 10);
-        doc.text('GASTOS OPERATIVOS', pageWidth / 2, yPos + 10, { align: 'center' });
-        doc.text('UTILIDAD NETA', pageWidth - 30, yPos + 10, { align: 'right' });
+        // Function to draw card
+        const drawCard = (x: number, title: string, value: string, color: [number, number, number]) => {
+            // Bg
+            doc.setDrawColor(226, 232, 240); // Slate-200
+            doc.setFillColor(255, 255, 255);
+            doc.roundedRect(x, yPos, cardWidth, cardHeight, 2, 2, 'FD');
 
-        doc.setFontSize(14);
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(0);
+            // Border Left
+            doc.setFillColor(...color);
+            doc.rect(x, yPos, 2, cardHeight, 'F');
 
-        // Sales
-        doc.setTextColor(22, 163, 74); // Green
-        doc.text(this.formatCurrency(totalSales), 30, yPos + 22);
+            // Title
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(8);
+            doc.setTextColor(100, 116, 139); // Slate-500
+            doc.text(title.toUpperCase(), x + 6, yPos + 8);
 
-        // Expenses
-        doc.setTextColor(220, 38, 38); // Red
-        doc.text(this.formatCurrency(totalExpenses), pageWidth / 2, yPos + 22, { align: 'center' });
+            // Value
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(14);
+            doc.setTextColor(15, 23, 42); // Slate-900
+            doc.text(value, x + 6, yPos + 18);
+        };
 
-        // Profit
-        doc.setTextColor(79, 70, 229); // Indigo
-        doc.text(this.formatCurrency(netProfit), pageWidth - 30, yPos + 22, { align: 'right' });
+        drawCard(14, 'Ventas Totales', this.formatCurrency(totalSales), [34, 197, 94]); // Green
+        drawCard(14 + cardWidth + 5, 'Gastos Operativos', this.formatCurrency(totalExpenses), [239, 68, 68]); // Red
+        drawCard(14 + (cardWidth + 5) * 2, 'Utilidad Neta', this.formatCurrency(netProfit), [99, 102, 241]); // Indigo
 
-        doc.setTextColor(0); // Reset
+        yPos += 35;
 
-        yPos += 45;
 
-        // --- SALES TABLE ---
-        doc.setFontSize(14);
-        doc.setFont('helvetica', 'bold');
-        doc.text('Desglose de Ventas', 14, yPos);
-        yPos += 5;
+        // --- TABLES ---
 
-        const salesBody = sales.map(s => [
-            formatDateTime(new Date(s.timestamp)),
-            `#${s.id}`,
-            s.salespersonName || 'N/A',
-            s.paymentMethod?.toUpperCase() || 'CASH',
-            this.formatCurrency(s.total)
-        ]);
+        // 1. SALES
+        if (sales.length > 0) {
+            doc.setFontSize(12);
+            doc.setTextColor(15, 23, 42);
+            doc.text('Detalle de Ventas', 14, yPos);
+            yPos += 3;
 
-        autoTable(doc, {
-            startY: yPos,
-            head: [['Fecha', 'ID', 'Vendedor', 'Método', 'Monto']],
-            body: salesBody,
-            theme: 'grid',
-            headStyles: { fillColor: [24, 24, 27], textColor: 255, fontStyle: 'bold' },
-            styles: { fontSize: 9, cellPadding: 3 },
-            columnStyles: {
-                4: { halign: 'right', fontStyle: 'bold' }
-            }
-        });
+            const salesBody = sales.map(s => [
+                formatDateTime(new Date(s.timestamp)),
+                `#${s.id || '-'}`,
+                s.salespersonName || 'N/A',
+                s.paymentMethod?.toUpperCase() || 'CASH',
+                this.formatCurrency(s.total)
+            ]);
 
-        // @ts-ignore
-        yPos = doc.lastAutoTable.finalY + 15;
+            autoTable(doc, {
+                startY: yPos,
+                head: [['Fecha/Hora', 'ID', 'Vendedor', 'Método', 'Monto']],
+                body: salesBody,
+                theme: 'striped',
+                headStyles: {
+                    fillColor: [30, 41, 59], // Slate-800
+                    textColor: 255,
+                    fontStyle: 'bold',
+                    halign: 'center'
+                },
+                columnStyles: {
+                    0: { cellWidth: 45 },
+                    4: { halign: 'right', fontStyle: 'bold', textColor: [34, 197, 94] }
+                },
+                styles: { fontSize: 8, cellPadding: 3 },
+                alternateRowStyles: { fillColor: [248, 250, 252] }
+            });
 
-        // --- EXPENSES TABLE ---
+            // @ts-ignore
+            yPos = doc.lastAutoTable.finalY + 15;
+        }
+
+        // 2. EXPENSES
         if (expenses.length > 0) {
-            // Check if we need new page
-            if (yPos > 250) {
+            // Check page break
+            if (yPos > pageHeight - 50) {
                 doc.addPage();
                 yPos = 20;
             }
 
-            doc.setFontSize(14);
-            doc.setFont('helvetica', 'bold');
-            doc.text('Desglose de Gastos', 14, yPos);
-            yPos += 5;
+            doc.setFontSize(12);
+            doc.setTextColor(15, 23, 42); // Slate-900
+            doc.text('Gastos Registrados', 14, yPos);
+            yPos += 3;
 
             const expensesBody = expenses.map(e => [
                 formatDate(new Date(e.timestamp)),
+                formatTime(new Date(e.timestamp)),
                 e.description,
                 this.formatCurrency(e.amount)
             ]);
 
             autoTable(doc, {
                 startY: yPos,
-                head: [['Fecha', 'Descripción', 'Monto']],
+                head: [['Fecha', 'Hora', 'Descripción', 'Monto']],
                 body: expensesBody,
-                theme: 'grid',
-                headStyles: { fillColor: [153, 27, 27], textColor: 255 }, // Red header
-                styles: { fontSize: 9, cellPadding: 3 },
+                theme: 'striped',
+                headStyles: {
+                    fillColor: [153, 27, 27], // Red-800
+                    textColor: 255,
+                    fontStyle: 'bold',
+                    halign: 'center'
+                },
                 columnStyles: {
-                    2: { halign: 'right', fontStyle: 'bold' }
-                }
+                    3: { halign: 'right', fontStyle: 'bold', textColor: [220, 38, 38] }
+                },
+                styles: { fontSize: 8, cellPadding: 3 },
+                alternateRowStyles: { fillColor: [254, 242, 242] }
             });
+
+            // @ts-ignore
+            yPos = doc.lastAutoTable.finalY + 10;
+        }
+
+        // --- FOOTER ---
+        const pageCount = doc.internal.pages.length - 1; // jspdf starts with 1 page, array has empty first element? No.
+        // Actually doc.internal.getNumberOfPages() is better
+        const totalPages = doc.internal.getNumberOfPages();
+        for (let i = 1; i <= totalPages; i++) {
+            doc.setPage(i);
+            doc.setFontSize(8);
+            doc.setTextColor(150);
+            doc.text(`Página ${i} de ${totalPages} - POS Offline System`, pageWidth / 2, pageHeight - 10, { align: 'center' });
         }
 
         // SAVE
-        const fileName = `Balance_${this.formatDate(startDate)}_file_${Date.now()}.pdf`;
+        const fileName = `Reporte_${this.formatDate(startDate)}-${this.formatDate(endDate)}.pdf`;
         doc.save(fileName);
     }
 
