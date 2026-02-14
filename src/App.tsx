@@ -4,6 +4,7 @@ import { Layout } from './components/Layout';
 import { POSPage } from './pages/POSPage';
 import { ProductsPage } from './pages/ProductsPage';
 import { BalancePage } from './pages/BalancePage';
+import { BalanceReportPrint } from './pages/BalanceReportPrint';
 import { LayawaysPage } from './pages/LayawaysPage';
 import { LoginPage } from './pages/LoginPage';
 import { POSProvider, usePOS } from './context/POSContext';
@@ -21,6 +22,7 @@ function AppContent() {
         <Route path="/" element={<POSPage />} />
         <Route path="/products" element={<ProductsPage />} />
         <Route path="/balance" element={<BalancePage />} />
+        <Route path="/print-report" element={<BalanceReportPrint />} />
         <Route path="/layaways" element={<LayawaysPage />} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
