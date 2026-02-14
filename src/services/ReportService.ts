@@ -3,6 +3,7 @@ import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import type { Sale, Expense } from '../db/db';
 import { formatTime, formatDate, formatDateTime } from '../utils/dateUtils';
+import logo from '../assets/logo.png';
 
 interface ReportData {
     startDate: Date;
@@ -56,7 +57,7 @@ export class ReportService {
             // In Vite, we might need to pass the imported string.
             // For now, let's try a standard path or base64 placeholder if needed.
             // If the user has a logo file, we should use it. 
-            logoData = await this.loadImage('/logo.png').catch(() => null);
+            logoData = await this.loadImage(logo).catch(() => null);
         } catch (e) {
             console.warn("Could not load logo for PDF", e);
         }
@@ -214,9 +215,7 @@ export class ReportService {
         }
 
         // --- FOOTER ---
-        const pageCount = doc.internal.pages.length - 1; // jspdf starts with 1 page, array has empty first element? No.
-        // Actually doc.internal.getNumberOfPages() is better
-        const totalPages = doc.internal.getNumberOfPages();
+        const totalPages = doc.internal.pages.length - 1;
         for (let i = 1; i <= totalPages; i++) {
             doc.setPage(i);
             doc.setFontSize(8);
