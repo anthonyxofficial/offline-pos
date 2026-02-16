@@ -26,6 +26,7 @@ import { usePOS } from '../context/POSContext';
 import { ReportService } from '../services/ReportService';
 import { formatTime } from '../utils/dateUtils';
 import { AddExpenseModal } from '../components/AddExpenseModal';
+import { PDFPreviewModal } from '../components/PDFPreviewModal';
 
 export const BalancePage = () => {
     const { currentUser } = usePOS();
@@ -40,6 +41,8 @@ export const BalancePage = () => {
     const [debugMode, setDebugMode] = useState(false);
     const [debugSales, setDebugSales] = useState<any[]>([]);
     const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
+    const [previewPdfUrl, setPreviewPdfUrl] = useState<string | null>(null);
+    const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
     useEffect(() => {
         db.sales.count().then(setLocalCount);
@@ -259,17 +262,28 @@ export const BalancePage = () => {
         }
     };
 
-    const handleExportPDF = () => {
+    const handleDownloadPDF = async () => {
         if (!sales || !expenses) return;
-        ReportService.generateBalancePDF({
-            startDate,
-            endDate,
-            sales,
-            expenses,
-            totalSales,
-            totalExpenses,
-            netProfit
-        });
+
+        try {
+            const reportData = {
+                startDate,
+                endDate,
+                sales,
+                expenses,
+                totalSales,
+                totalExpenses,
+                netProfit
+            };
+            const doc = await ReportService.generateBalancePDF(reportData);
+            const pdfBlob = doc.output('blob');
+            const url = URL.createObjectURL(pdfBlob);
+            setPreviewPdfUrl(url);
+            setIsPreviewOpen(true);
+        } catch (error) {
+            console.error("Error generating PDF:", error);
+            alert("Error al generar PDF");
+        }
     };
 
     const handleExportExcel = () => {
@@ -454,7 +468,7 @@ export const BalancePage = () => {
                         L {netProfit.toLocaleString('es-HN', { minimumFractionDigits: 2 })}
                     </p>
                     <div className="flex gap-2 mt-4">
-                        <button onClick={handleExportPDF} className="bg-white text-black px-4 py-2 rounded-xl text-xs font-bold hover:bg-gray-200 transition-colors flex items-center gap-2">
+                        <button onClick={handleDownloadPDF} className="bg-white text-black px-4 py-2 rounded-xl text-xs font-bold hover:bg-gray-200 transition-colors flex items-center gap-2">
                             <Download size={14} /> PDF
                         </button>
                         <button onClick={handleExportExcel} className="bg-green-600 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-green-500 transition-colors flex items-center gap-2">
@@ -1062,10 +1076,17 @@ export const BalancePage = () => {
                     )}
                 </div>
             </div>
-            {/* Expense Modal */}
-            <AddExpenseModal
-                isOpen={isExpenseModalOpen}
-                onClose={() => setIsExpenseModalOpen(false)}
+            {/* Modals */}
+            {isExpenseModalOpen && (
+                <AddExpenseModal isOpen={true} onClose={() => setIsExpenseModalOpen(false)} />
+            )}
+
+            <PDFPreviewModal
+                isOpen={isPreviewOpen}
+                onClose={() => setIsPreviewOpen(false)}
+                pdfUrl={previewPdfUrl}
+                title="Vista Previa de Reporte"
+                fileName={`Reporte_${startDate.toISOString().split('T')[0]}.pdf`}
             />
         </div>
     );
