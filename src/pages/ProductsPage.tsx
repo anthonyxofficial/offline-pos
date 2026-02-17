@@ -243,12 +243,33 @@ export const ProductsPage = () => {
                                     .select('name, id')
                                     .order('id', { ascending: false })
                                     .limit(3);
-                                alert(`✅ CONEXIÓN EXITOSA\nProductos: ${status.count}\n(Si ves esto, la PC está enviando bien)`);
+                                alert(`✅ CONEXIÓN EXITOSA\nProductos en Nube: ${status.count}\n(Si ves productos aquí pero NO en la nube, es tu caché local)`);
                             }
                         }}
                         className="flex items-center gap-2 text-xs font-bold text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 px-3 py-1.5 rounded-lg transition-all"
                     >
                         <span>🔍 Diagnosticar</span>
+                    </button>
+
+                    <button
+                        onClick={async () => {
+                            if (!confirm("⚠️ ¿ESTÁS SEGURO?\n\nEsto borrará TODOS los datos de ESTE dispositivo (PC/Celular) para resincronizar desde cero.\n\nÚsalo si ves productos 'fantasmas'.")) return;
+
+                            try {
+                                console.log("🧹 Borrando base de datos local...");
+                                await db.delete();
+                                await db.open();
+                                localStorage.clear();
+                                alert("✅ Limpieza Completada.\nRecargando sistema...");
+                                window.location.reload();
+                            } catch (e) {
+                                alert("Error al limpiar: " + e);
+                            }
+                        }}
+                        className="flex items-center gap-2 text-xs font-bold text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 px-3 py-1.5 rounded-lg transition-all"
+                    >
+                        <Trash2 size={14} />
+                        <span>Reset Local</span>
                     </button>
                 </div>
             </div>
