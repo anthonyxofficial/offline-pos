@@ -367,6 +367,29 @@ export const POSPage = () => {
                     >
                         <History size={20} />
                     </button>
+                    {/* TEMP DEBUG BUTTON */}
+                    <button
+                        onClick={async () => {
+                            try {
+                                const p = await db.products.toCollection().first();
+                                if (!p) return alert("No hay productos");
+                                if (!currentUser) return alert("Selecciona un usuario primero");
+
+                                const oldStock = p.stock;
+                                alert(`🕵️‍♂️ TEST: ${p.name}\nStock Actual: ${oldStock}\n\nIntentando restar -1...`);
+
+                                await InventoryService.adjustStock(p.id!, -1, 'adjustment', currentUser, "TEST BUTTON");
+
+                                const fresh = await db.products.get(p.id!);
+                                alert(`✅ RESULTADO:\nAntes: ${oldStock}\nAhora: ${fresh?.stock}\n\n¿Cambió? ${oldStock !== fresh?.stock ? 'SÍ' : 'NO'}`);
+                            } catch (e: any) {
+                                alert("❌ ERROR TEST: " + e.message);
+                            }
+                        }}
+                        className="p-2 bg-red-500 text-white font-bold text-xs rounded-lg"
+                    >
+                        TEST STOCK
+                    </button>
                 </div>
 
                 {/* Search Bar Spotlight */}
