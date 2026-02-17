@@ -30,10 +30,18 @@ function AppContent() {
 
 function App() {
   useEffect(() => {
-    import('./db/seed').then(m => m.seedDatabase());
-    // Auto-seed disabled for production to PREVENT ZOMBIE DATA (Sneakers),
-    // BUT we need it to create the default USERS (Anthony, etc.) if db is empty.
-    // I modified seed.ts to have an empty sneakers array, so this is safe now.
+    // FORCE CLEANUP ONE TIME
+    const hasCleaned = localStorage.getItem('HAS_CLEANED_V1');
+    if (!hasCleaned) {
+      console.log("🧨 FORCING CLEANUP OF ZOMBIE DATA...");
+      import('./db/db').then(async ({ db }) => {
+        await db.products.clear();
+        localStorage.setItem('HAS_CLEANED_V1', 'true');
+        window.location.reload();
+      });
+    } else {
+      import('./db/seed').then(m => m.seedDatabase());
+    }
   }, []);
 
   return (
