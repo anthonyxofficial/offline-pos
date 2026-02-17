@@ -201,6 +201,7 @@ export const POSPage = () => {
             // We wrap this in a nested try/catch so stock errors don't block the sale completion UI
             try {
                 for (const item of cart) {
+                    console.log(`[CHECKOUT] Processing Item: ${item.name} (ID: ${item.id}), Qty: ${item.quantity}`);
                     if (item.id) {
                         await InventoryService.adjustStock(
                             item.id,
@@ -212,8 +213,9 @@ export const POSPage = () => {
                         );
                     }
                 }
-            } catch (stockError) {
+            } catch (stockError: any) {
                 console.error("Error al descontar inventario:", stockError);
+                alert(`⚠️ ERROR DE INVENTARIO: ${stockError.message || stockError}`);
                 // We continue to close the modal because the sale was already recorded financially
             }
 

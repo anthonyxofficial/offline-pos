@@ -28,12 +28,19 @@ export class InventoryService {
             console.warn('Could not load Supabase client');
         }
 
+        console.log(`[INVENTORY] Adjusting stock for product ${productId}. Qty: ${quantity}. Type: ${type}`);
+
         await db.transaction('rw', db.products, db.stock_movements, async () => {
             const product = await db.products.get(productId);
-            if (!product) throw new Error(`Product ${productId} not found`);
+            if (!product) {
+                console.error(`[INVENTORY] Product ${productId} not found during adjustment!`);
+                throw new Error(`Product ${productId} not found`);
+            }
 
             const previousStock = product.stock || 0;
             const newStock = Math.max(0, previousStock + quantity);
+
+            console.log(`[INVENTORY] Product ${product.name} (ID: ${productId}). Old: ${previousStock}, New: ${newStock}`);
 
             // 1. Update Product Stock
             await db.products.update(productId, { stock: newStock });
@@ -53,13 +60,7 @@ export class InventoryService {
                 referenceId
             };
             await db.stock_movements.add(movement);
-
-            // 3. Queue Sync (Optimistic)
-            // We can't safely await cloud calls inside IDB transaction in all browsers.
-            // Ideally we should use a separate queue or "synced: false" flag.
-            // For now, we'll try to sync AFTER the transaction or fire-and-forget inside if supported.
-            // But since we moved import out, let's keep the sync logic simple but safe.
-            // Actually, better to do cloud sync AFTER transaction commits.
+            console.log(`[INVENTORY] Movement recorded. Transaction committing...`);
         });
 
         // 4. Fire-and-forget Cloud Sync (After local commit)
