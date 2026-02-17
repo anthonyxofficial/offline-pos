@@ -267,6 +267,9 @@ export const syncNow = async () => {
         // 3. Sync Expenses (Bi-directional)
         await syncExpenses();
 
+        // 3.5 Sync Pending Products (Robustness)
+        await syncPendingProducts();
+
         // 4. Pull Products (Lightweight check)
         // Only if needed? For now, we do it to keep stock in sync
         const { data: products } = await supabase!.from('products').select('*');
@@ -380,6 +383,41 @@ export const syncPendingSales = async () => {
         }
     } catch (err) {
         console.error('[SYNC] processPendingSales error:', err);
+    }
+};
+
+// New function to sync pending products (queue processing)
+export const syncPendingProducts = async () => {
+    if (!supabase) return;
+    try {
+        const pending = await db.products.filter(p => !p.synced).toArray();
+        if (pending.length === 0) return;
+
+        console.log(`[SYNC] Found ${pending.length} pending products to sync...`);
+
+        for (const p of pending) {
+            const productData = {
+                id: p.id,
+                name: p.name,
+                price: p.price,
+                category: p.category,
+                brand: p.brand,
+                size: p.size,
+                image: p.image,
+                stock: p.stock
+            };
+
+            const { error } = await supabase.from('products').upsert(productData);
+
+            if (!error) {
+                await db.products.update(p.id!, { synced: true });
+                console.log(`[SYNC] Product #${p.id} synced successfully.`);
+            } else {
+                console.error(`[SYNC] Failed to sync product #${p.id}:`, error.message);
+            }
+        }
+    } catch (err) {
+        console.error('[SYNC] syncPendingProducts error:', err);
     }
 };
 // Force Push All Data (Brute Force Sync)

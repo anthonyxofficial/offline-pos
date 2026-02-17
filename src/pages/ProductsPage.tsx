@@ -75,9 +75,9 @@ export const ProductsPage = () => {
                 // So if we run adjustStock, the DB has new stock. 
                 // Then if we run `db.products.update(id, p)`, we just confirm it.
                 // The critical part is LOGGING the movement.
-                await db.products.update(id, p);
+                await db.products.update(id, { ...p, synced: false });
             } else {
-                id = await db.products.add(p) as number;
+                id = await db.products.add({ ...p, synced: false }) as number;
                 // Initial stock movement
                 if (p.stock && p.stock > 0 && currentUser) {
                     await InventoryService.adjustStock(
@@ -114,12 +114,14 @@ export const ProductsPage = () => {
 
                     // @ts-ignore
                     const { error } = await supabase.from('products').upsert({ ...productData, id: id });
+
                     if (error) throw error;
+
+                    // If success, mark as synced
+                    await db.products.update(id!, { synced: true });
                     console.log("[SYNC] Product synced successfully");
                 } else {
-                    console.warn("[SYNC] Supabase client is null. Data saved locally only.");
-                    // Optional: alert the user? 
-                    // alert("Guardado solo localmente (Sin conexión a nube)");
+                    console.warn("[SYNC] Supabase client is null. Data saved locally only (marked as unsynced).");
                 }
             } catch (err) {
                 console.error("Product cloud sync failed:", err);

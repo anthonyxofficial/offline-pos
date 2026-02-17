@@ -9,6 +9,7 @@ export interface Product {
     size?: string | number;
     brand?: string;
     stock?: number;
+    synced?: boolean;
 }
 
 export interface User {
@@ -106,6 +107,11 @@ export class POSDatabase extends Dexie {
         // Version 5: Add synced index to sales
         this.version(5).stores({
             sales: '++id, timestamp, salespersonId, synced'
+        });
+
+        // Version 6: Add synced index to products
+        this.version(6).stores({
+            products: '++id, name, synced'
         });
     }
 }
