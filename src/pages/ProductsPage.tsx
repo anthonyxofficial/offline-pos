@@ -92,7 +92,15 @@ export const ProductsPage = () => {
 
             // Sync to Supabase
             try {
+                // Check if supabase is initialized (imported at top level now)
+                // We'll use a dynamic import for now to avoid breaking changes if not needed, 
+                // BUT we should handle the null case explicitly or retry.
+                // Actually, let's switch to direct import at the top of the file to be safe.
+                // Reverting to dynamic import for this tool call to match the plan 'import supabase directly' means I need to add the import at the top too.
+                // Since I can only replace a chunk, I will use dynamic import but adding a specific check and log.
+
                 const { supabase } = await import('../db/supabase');
+
                 if (supabase) {
                     const productData = {
                         name: p.name,
@@ -105,7 +113,13 @@ export const ProductsPage = () => {
                     };
 
                     // @ts-ignore
-                    await supabase.from('products').upsert({ ...productData, id: id });
+                    const { error } = await supabase.from('products').upsert({ ...productData, id: id });
+                    if (error) throw error;
+                    console.log("[SYNC] Product synced successfully");
+                } else {
+                    console.warn("[SYNC] Supabase client is null. Data saved locally only.");
+                    // Optional: alert the user? 
+                    // alert("Guardado solo localmente (Sin conexión a nube)");
                 }
             } catch (err) {
                 console.error("Product cloud sync failed:", err);
