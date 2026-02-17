@@ -12,7 +12,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
     const [time, setTime] = React.useState(new Date());
 
     React.useEffect(() => {
-        console.log("POS v1.3.1 (Expenses Sync) Loaded");
+        console.log("POS v1.3.2 (Sync Fix) Loaded");
         const timer = setInterval(() => setTime(new Date()), 1000);
         return () => clearInterval(timer);
     }, []);
@@ -73,7 +73,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
 
                 {/* Version Indicator */}
                 <div className="hidden md:block mb-4 px-2 opacity-30 hover:opacity-60 transition-opacity">
-                    <p className="text-[9px] text-center font-mono text-zinc-500">v1.3.2 (Stable)</p>
+                    <p className="text-[9px] text-center font-mono text-zinc-500">v1.3.2 (Sync Fix)</p>
                 </div>
 
                 <div className="flex flex-row md:flex-col gap-2 md:gap-4 w-full md:px-2 h-full md:h-auto items-center justify-around md:justify-start">
@@ -114,7 +114,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
             </nav>
 
             <main className="flex-1 overflow-hidden relative pb-16 md:pb-0">
-                <div className="absolute top-2 right-2 z-50 pointer-events-none opacity-30 text-[10px] text-white font-mono mix-blend-overlay">v1.3.0 Cyberpunk</div>
+                <div className="absolute top-2 right-2 z-50 pointer-events-none opacity-30 text-[10px] text-white font-mono mix-blend-overlay">v1.3.2 (Sync Fix)</div>
                 {/* Background Gradient */}
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-purple-900/20 via-zinc-950 to-zinc-950 z-0 pointer-events-none" />
 

@@ -646,7 +646,7 @@ export const BalancePage = () => {
                             <div className="p-6 bg-zinc-900/30 border-r border-zinc-800">
                                 <h4 className="text-sm font-bold text-zinc-400 uppercase tracking-widest mb-4 flex items-center gap-2">
                                     <Cloud size={16} className="text-indigo-400" />
-                                    Conexión a Supabase
+                                    Conexión a Supabase <span className="text-[10px] text-zinc-600 ml-auto">v1.3.2</span>
                                 </h4>
                                 <div className="space-y-4 mb-6">
                                     <div>
