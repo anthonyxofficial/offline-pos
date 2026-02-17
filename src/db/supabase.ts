@@ -286,12 +286,11 @@ export const syncNow = async () => {
 
         // 4. Pull Products (Lightweight check)
         // Only if needed? For now, we do it to keep stock in sync
-        // 4. Pull Products (Lightweight check)
-        // Only if needed? For now, we do it to keep stock in sync
         const { data: products } = await supabase!.from('products').select('*');
         if (products && products.length > 0) {
             // CRITICAL: Mark downloaded products as synced to prevent echo loop
-            const productsWithSyncFlag = products.map(p => ({
+            const list = products as any[];
+            const productsWithSyncFlag = list.map(p => ({
                 ...p,
                 synced: true
             }));

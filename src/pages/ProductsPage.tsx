@@ -239,8 +239,12 @@ export const ProductsPage = () => {
                             if (status.error) {
                                 alert(`ERROR DE CONEXIÓN:\n${status.error.message}\n\nPosible causa: RLS Policies o Clave Inválida.`);
                             } else {
-                                const { data } = await supabase.from('products').select('name, id').order('id', { ascending: false }).limit(3);
-                                alert(`✅ CONEXIÓN EXITOSA\n\nCant. Productos Nube: ${status.count}\n\nÚltimos 3:\n${data?.map(p => `- ${p.name} (${p.id})`).join('\n')}\n\nSi ves tu producto aquí, la PC está bien.`);
+                                await (supabase as any)
+                                    .from('products')
+                                    .select('name, id')
+                                    .order('id', { ascending: false })
+                                    .limit(3);
+                                alert(`✅ CONEXIÓN EXITOSA\nProductos: ${status.count}\n(Si ves esto, la PC está enviando bien)`);
                             }
                         }}
                         className="flex items-center gap-2 text-xs font-bold text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 px-3 py-1.5 rounded-lg transition-all"
