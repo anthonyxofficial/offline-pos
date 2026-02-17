@@ -1,14 +1,38 @@
 import React, { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, type Product } from '../db/db';
-import { Plus, Trash2, Pencil, X, Image as ImageIcon, Save, History } from 'lucide-react';
+import { Search, Plus, Trash2, X, Image as ImageIcon, RefreshCw, Save, History, Pencil } from 'lucide-react';
 import { usePOS } from '../context/POSContext';
 import { InventoryService } from '../services/InventoryService';
 import { KardexModal } from '../components/KardexModal';
 
 export const ProductsPage = () => {
     const { isAdmin, currentUser } = usePOS();
-    const products = useLiveQuery(() => db.products.orderBy('name').toArray(), []) || [];
+    const [searchTerm, setSearchTerm] = useState('');
+    const [selectedCategory, setSelectedCategory] = useState('Todos');
+
+    const products = useLiveQuery(async () => {
+        let collection = db.products.orderBy('name');
+
+        // Filter by category
+        if (selectedCategory !== 'Todos') {
+            collection = collection.filter(p => p.category === selectedCategory);
+        }
+
+        let results = await collection.toArray();
+
+        // Search text
+        if (searchTerm) {
+            const lower = searchTerm.toLowerCase();
+            results = results.filter(p =>
+                p.name.toLowerCase().includes(lower) ||
+                p.brand?.toLowerCase().includes(lower)
+            );
+        }
+
+        return results;
+    }, [searchTerm, selectedCategory]) || [];
+
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingId, setEditingId] = useState<number | null>(null);
     const [isKardexOpen, setIsKardexOpen] = useState(false);
@@ -165,13 +189,83 @@ export const ProductsPage = () => {
                 </div>
                 {isAdmin && (
                     <button
-                        onClick={() => openModal()}
-                        className="bg-white text-black px-5 py-3 rounded-xl flex items-center gap-2 hover:bg-zinc-200 hover:shadow-lg shadow-white/10 transition-all active:scale-95 font-bold"
+                        onClick={() => setIsModalOpen(true)}
+                        className="bg-indigo-600 hover:bg-indigo-500 text-white p-3 rounded-2xl shadow-lg shadow-indigo-600/20 transition-all hover:scale-105 active:scale-95 flex items-center gap-2"
                     >
-                        <Plus size={20} strokeWidth={3} />
-                        <span className="hidden md:inline">Nuevo Producto</span>
+                        <Plus size={24} />
+                        <span className="font-bold text-sm hidden md:inline">Nuevo Producto</span>
                     </button>
                 )}
+            </div>
+
+            {/* Sync Controls Toolbar */}
+            <div className="max-w-7xl mx-auto px-4 mb-4">
+                <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-2 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <div className={`w-2.5 h-2.5 rounded-full ${navigator.onLine ? 'bg-emerald-500 shadow-[0_0_8px_#10b981]' : 'bg-red-500'} transition-all`} />
+                        <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
+                            {navigator.onLine ? 'Online' : 'Offline'}
+                        </span>
+                    </div>
+
+                    <button
+                        onClick={async () => {
+                            const btn = document.getElementById('refresh-btn');
+                            if (btn) btn.classList.add('animate-spin');
+                            try {
+                                const { syncNow } = await import('../db/supabase');
+                                await syncNow();
+                                console.log('Manual sync complete');
+                                // Force reload to be sure
+                                window.location.reload();
+                            } catch (e) {
+                                console.error(e);
+                            } finally {
+                                if (btn) btn.classList.remove('animate-spin');
+                            }
+                        }}
+                        className="flex items-center gap-2 text-xs font-bold text-indigo-400 hover:text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20 px-3 py-1.5 rounded-lg transition-all"
+                    >
+                        <RefreshCw size={14} id="refresh-btn" />
+                        <span>Recargar</span>
+                    </button>
+                </div>
+            </div>
+
+            {/* Filters & Search */}
+            <div className="sticky top-20 z-10 bg-black/80 backdrop-blur-md p-4 -mx-4 mb-6 border-b border-zinc-800 space-y-4">
+                <div className="relative">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" size={20} />
+                    <input
+                        placeholder="Buscar producto..."
+                        className="w-full bg-zinc-900 border border-zinc-800 rounded-xl py-4 pl-12 pr-4 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all font-medium"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                    {searchTerm && (
+                        <button
+                            onClick={() => setSearchTerm('')}
+                            className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white"
+                        >
+                            <X size={18} />
+                        </button>
+                    )}
+                </div>
+                {/* Categories */}
+                <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
+                    {['Todos', 'Bebidas', 'Snacks', 'Limpieza', 'General'].map(cat => (
+                        <button
+                            key={cat}
+                            onClick={() => setSelectedCategory(cat)}
+                            className={`px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-all ${selectedCategory === cat
+                                ? 'bg-white text-black shadow-lg shadow-white/10'
+                                : 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800'
+                                }`}
+                        >
+                            {cat}
+                        </button>
+                    ))}
+                </div>
             </div>
 
             <div className="grid grid-cols-1 gap-3">
@@ -350,10 +444,10 @@ export const ProductsPage = () => {
                                                 key={s}
                                                 type="button"
                                                 onClick={() => setFormData({ ...formData, size: s })}
-                                                className={`py-2 rounded-lg text-xs font-bold border transition-all ${formData.size === s
+                                                className={`py - 2 rounded - lg text - xs font - bold border transition - all ${formData.size === s
                                                     ? 'bg-white text-black border-white shadow-lg shadow-white/5'
                                                     : 'bg-zinc-950 text-zinc-400 border-zinc-800 hover:border-zinc-600 hover:text-white'
-                                                    }`}
+                                                    } `}
                                             >
                                                 {s}
                                             </button>
