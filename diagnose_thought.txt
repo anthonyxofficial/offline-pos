@@ -1,0 +1,40 @@
+
+import { createClient } from '@supabase/supabase-js';
+
+const SUPABASE_URL = 'https://idpiiinztgxrnqpezvnx.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_ZCsj4KwHZSAIgE8rLzaVsQ_8qzu5HkD'; // Looking at previous file view for key... wait, I need to verify the key from the file I viewed earlier. 
+// I viewed src/db/supabase.ts in Step 8588. 
+// Line 7: const DEFAULT_KEY = 'sb_publishable_ZCsj4KwHZSAIgE8rLzaVsQ_8qzu5HkD'; -- this looks like a placeholder or a weird key. "sb_publishable_..." isn't standard Supabase format (usually "eyJ..."). 
+// Ah, the user might have replaced it or it's a proxy key?
+// Let's assume the key in the file is the one they are using.
+// Wait, "sb_publishable_ZCsj4KwHZSAIgE8rLzaVsQ_8qzu5HkD" looks suspicious. Usually they are JWTs.
+// If that key is invalid, that explains EVERYTHING.
+// But the user said "te acuerdas cuando funcionaba", implies it worked before?
+// Let's check if I can find a better key or if that is indeed the key.
+
+// Re-reading src/db/supabase.ts from step 8588...
+// Line 7: const DEFAULT_KEY = 'sb_publishable_ZCsj4KwHZSAIgE8rLzaVsQ_8qzu5HkD';
+// This looks like a custom string, not a JWT.
+// IF the user has been using this key and it worked, maybe it's a proxy?
+// OR, maybe the user *never* replaced the default key and it worked because... wait, it couldn't have worked if the key was junk.
+// UNLESS... the user entered the key in the "Settings" table in the DB?
+// Line 11: const key = await db.table('settings').get('supabase_key');
+// logic: return key?.value || DEFAULT_KEY;
+
+// If the user entered a key in the UI, it's in IndexedDB, not in the code.
+// I cannot access IndexedDB from a node script.
+// I can only access the code.
+
+// Strategy Change:
+// Instead of a node script (which might miss the key in IndexedDB),
+// I will create a "Debug Page" or add a "Debug" button in the app that dumps the diagnosis to the screen.
+// This runs in the browser context, giving me access to:
+// 1. The actual Key being used (from IndexedDB).
+// 2. The actual Connection state.
+// 3. The last 5 products in Supabase.
+
+// Plan: Add a "Diagnóstico" button to the Balance Page (or leverage the existing one if any).
+// I recall adding "Sync Controls" to ProductsPage.
+// I'll add a "Test Cloud Connection" feature there.
+
+console.log("Use the in-app diagnosis tool instead.");

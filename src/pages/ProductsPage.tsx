@@ -216,7 +216,6 @@ export const ProductsPage = () => {
                                 const { syncNow } = await import('../db/supabase');
                                 await syncNow();
                                 console.log('Manual sync complete');
-                                // Force reload to be sure
                                 window.location.reload();
                             } catch (e) {
                                 console.error(e);
@@ -228,6 +227,25 @@ export const ProductsPage = () => {
                     >
                         <RefreshCw size={14} id="refresh-btn" />
                         <span>Recargar</span>
+                    </button>
+                    <button
+                        onClick={async () => {
+                            const { supabase } = await import('../db/supabase');
+                            if (!supabase) {
+                                alert("Supabase no está inicializado. Revisa tu conexión.");
+                                return;
+                            }
+                            const status = await supabase.from('products').select('count', { count: 'exact', head: true });
+                            if (status.error) {
+                                alert(`ERROR DE CONEXIÓN:\n${status.error.message}\n\nPosible causa: RLS Policies o Clave Inválida.`);
+                            } else {
+                                const { data } = await supabase.from('products').select('name, id').order('id', { ascending: false }).limit(3);
+                                alert(`✅ CONEXIÓN EXITOSA\n\nCant. Productos Nube: ${status.count}\n\nÚltimos 3:\n${data?.map(p => `- ${p.name} (${p.id})`).join('\n')}\n\nSi ves tu producto aquí, la PC está bien.`);
+                            }
+                        }}
+                        className="flex items-center gap-2 text-xs font-bold text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 px-3 py-1.5 rounded-lg transition-all"
+                    >
+                        <span>🔍 Diagnosticar</span>
                     </button>
                 </div>
             </div>
@@ -371,218 +389,220 @@ export const ProductsPage = () => {
             </div>
 
             {/* Modal */}
-            {isModalOpen && (
-                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
-                    <div className="bg-zinc-900 w-full max-w-lg rounded-3xl shadow-2xl border border-zinc-800 overflow-hidden flex flex-col max-h-[90vh]">
-                        <div className="p-6 border-b border-zinc-800 flex justify-between items-center bg-zinc-900">
-                            <h3 className="text-xl font-black text-white">
-                                {editingId ? 'Editar Producto' : 'Nuevo Producto'}
-                            </h3>
-                            <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-zinc-800 rounded-full text-zinc-400 hover:text-white transition-colors">
-                                <X size={24} />
-                            </button>
-                        </div>
-
-                        <form onSubmit={handleSave} className="p-6 space-y-4 overflow-y-auto custom-scrollbar">
-                            {/* Image Preview */}
-                            <div className="flex justify-center mb-6">
-                                <div className="w-32 h-32 bg-zinc-800 rounded-2xl border-2 border-dashed border-zinc-700 flex items-center justify-center overflow-hidden relative group">
-                                    {formData.image ? (
-                                        <img src={formData.image} alt="Preview" className="w-full h-full object-cover" />
-                                    ) : (
-                                        <div className="text-center p-4">
-                                            <ImageIcon className="mx-auto text-zinc-600 mb-2" size={32} />
-                                            <span className="text-xs text-zinc-500 font-medium">Sin imagen</span>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Nombre</label>
-                                    <input
-                                        required
-                                        className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-4 text-white focus:outline-none focus:ring-2 focus:ring-white/10 focus:border-zinc-500 transition-all font-medium"
-                                        value={formData.name}
-                                        onChange={e => setFormData({ ...formData, name: e.target.value })}
-                                        placeholder="Ej. Coca Cola"
-                                    />
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Precio (L)</label>
-                                        <input
-                                            type="number"
-                                            step="0.01"
-                                            required
-                                            className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-4 text-white focus:outline-none focus:ring-2 focus:ring-white/10 focus:border-zinc-500 transition-all font-bold text-lg"
-                                            value={formData.price || ''}
-                                            onChange={e => setFormData({ ...formData, price: parseFloat(e.target.value) })}
-                                            placeholder="0.00"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Talla (Size)</label>
-                                        <input
-                                            type="text"
-                                            className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-4 text-white focus:outline-none focus:ring-2 focus:ring-white/10 focus:border-zinc-500 transition-all font-bold"
-                                            value={formData.size || ''}
-                                            onChange={e => setFormData({ ...formData, size: e.target.value })}
-                                            placeholder="ej. 9.5"
-                                        />
-                                    </div>
-                                </div>
-
-                                {/* Quick Sizing Chips */}
-                                <div>
-                                    <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-3">Tallas Rápidas</label>
-                                    <div className="grid grid-cols-6 gap-2">
-                                        {['4', '4.5', '5', '5.5', '6', '6.5', '7', '7.5', '8', '8.5', '9', '9.5', '10', '10.5', '11', '12', '13'].map(s => (
-                                            <button
-                                                key={s}
-                                                type="button"
-                                                onClick={() => setFormData({ ...formData, size: s })}
-                                                className={`py - 2 rounded - lg text - xs font - bold border transition - all ${formData.size === s
-                                                    ? 'bg-white text-black border-white shadow-lg shadow-white/5'
-                                                    : 'bg-zinc-950 text-zinc-400 border-zinc-800 hover:border-zinc-600 hover:text-white'
-                                                    } `}
-                                            >
-                                                {s}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Categoría</label>
-                                        <input
-                                            className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-4 text-white focus:outline-none focus:ring-2 focus:ring-white/10 focus:border-zinc-500 transition-all"
-                                            value={formData.category || ''}
-                                            onChange={e => setFormData({ ...formData, category: e.target.value })}
-                                            placeholder="Ej. Bebidas"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Marca</label>
-                                        <input
-                                            type="text"
-                                            className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-4 text-white focus:outline-none focus:ring-2 focus:ring-white/10 focus:border-zinc-500 transition-all"
-                                            value={formData.brand || ''}
-                                            onChange={e => setFormData({ ...formData, brand: e.target.value })}
-                                            placeholder="ej. Nike"
-                                        />
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Inventario (Stock)</label>
-                                    <input
-                                        type="number"
-                                        className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-4 text-white focus:outline-none focus:ring-2 focus:ring-white/10 focus:border-zinc-500 transition-all font-bold text-lg"
-                                        value={formData.stock || 0}
-                                        onChange={e => setFormData({ ...formData, stock: parseInt(e.target.value) || 0 })}
-                                        placeholder="0"
-                                    />
-                                    <p className="text-[10px] text-zinc-500 mt-2 font-medium italic">
-                                        ℹ️ Al guardar, se registrará un ajuste de inventario en el historial.
-                                    </p>
-                                </div>
-
-                                <div>
-                                    <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Imagen del Producto</label>
-
-                                    {/* Upload Button */}
-                                    <div className="flex flex-col gap-3">
-                                        <button
-                                            type="button"
-                                            onClick={() => document.getElementById('imageInput')?.click()}
-                                            className="w-full bg-zinc-800 text-zinc-300 py-3 rounded-xl border border-dashed border-zinc-600 hover:bg-zinc-700 hover:text-white hover:border-zinc-500 transition-all flex items-center justify-center gap-2 text-sm font-medium"
-                                        >
-                                            <ImageIcon size={18} />
-                                            {formData.image ? 'Cambiar Imagen' : 'Subir Imagen'}
-                                        </button>
-                                        <input
-                                            id="imageInput"
-                                            type="file"
-                                            accept="image/*"
-                                            className="hidden"
-                                            onChange={(e) => {
-                                                const file = e.target.files?.[0];
-                                                if (file) {
-                                                    const reader = new FileReader();
-                                                    reader.onload = (event) => {
-                                                        const img = new Image();
-                                                        img.onload = () => {
-                                                            const canvas = document.createElement('canvas');
-                                                            let width = img.width;
-                                                            let height = img.height;
-
-                                                            // Resize if too big (max 800px)
-                                                            const MAX_SIZE = 800;
-                                                            if (width > height) {
-                                                                if (width > MAX_SIZE) {
-                                                                    height *= MAX_SIZE / width;
-                                                                    width = MAX_SIZE;
-                                                                }
-                                                            } else {
-                                                                if (height > MAX_SIZE) {
-                                                                    width *= MAX_SIZE / height;
-                                                                    height = MAX_SIZE;
-                                                                }
-                                                            }
-
-                                                            canvas.width = width;
-                                                            canvas.height = height;
-                                                            const ctx = canvas.getContext('2d');
-                                                            ctx?.drawImage(img, 0, 0, width, height);
-
-                                                            // Compress to JPEG 70%
-                                                            const base64 = canvas.toDataURL('image/jpeg', 0.7);
-                                                            setFormData({ ...formData, image: base64 });
-                                                        };
-                                                        img.src = event.target?.result as string;
-                                                    };
-                                                    reader.readAsDataURL(file);
-                                                }
-                                            }}
-                                        />
-
-                                        {/* URL Fallback */}
-                                        <div className="relative">
-                                            <div className="absolute inset-0 flex items-center" aria-hidden="true">
-                                                <div className="w-full border-t border-zinc-800"></div>
-                                            </div>
-                                            <div className="relative flex justify-center">
-                                                <span className="bg-zinc-900 px-2 text-xs text-zinc-500">O usa una URL</span>
-                                            </div>
-                                        </div>
-
-                                        <input
-                                            className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-zinc-300 focus:outline-none focus:ring-2 focus:ring-white/10 focus:border-zinc-500 transition-all text-sm"
-                                            value={formData.image || ''}
-                                            onChange={e => setFormData({ ...formData, image: e.target.value })}
-                                            placeholder="https://ejemplo.com/imagen.jpg"
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="pt-4">
-                                <button
-                                    type="submit"
-                                    className="w-full bg-white text-black py-4 rounded-xl font-bold text-lg hover:bg-zinc-200 transition-colors flex items-center justify-center gap-2 shadow-lg shadow-white/5 active:scale-[0.98]"
-                                >
-                                    <Save size={20} />
-                                    <span>Guardar Producto</span>
+            {
+                isModalOpen && (
+                    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+                        <div className="bg-zinc-900 w-full max-w-lg rounded-3xl shadow-2xl border border-zinc-800 overflow-hidden flex flex-col max-h-[90vh]">
+                            <div className="p-6 border-b border-zinc-800 flex justify-between items-center bg-zinc-900">
+                                <h3 className="text-xl font-black text-white">
+                                    {editingId ? 'Editar Producto' : 'Nuevo Producto'}
+                                </h3>
+                                <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-zinc-800 rounded-full text-zinc-400 hover:text-white transition-colors">
+                                    <X size={24} />
                                 </button>
                             </div>
-                        </form>
+
+                            <form onSubmit={handleSave} className="p-6 space-y-4 overflow-y-auto custom-scrollbar">
+                                {/* Image Preview */}
+                                <div className="flex justify-center mb-6">
+                                    <div className="w-32 h-32 bg-zinc-800 rounded-2xl border-2 border-dashed border-zinc-700 flex items-center justify-center overflow-hidden relative group">
+                                        {formData.image ? (
+                                            <img src={formData.image} alt="Preview" className="w-full h-full object-cover" />
+                                        ) : (
+                                            <div className="text-center p-4">
+                                                <ImageIcon className="mx-auto text-zinc-600 mb-2" size={32} />
+                                                <span className="text-xs text-zinc-500 font-medium">Sin imagen</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Nombre</label>
+                                        <input
+                                            required
+                                            className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-4 text-white focus:outline-none focus:ring-2 focus:ring-white/10 focus:border-zinc-500 transition-all font-medium"
+                                            value={formData.name}
+                                            onChange={e => setFormData({ ...formData, name: e.target.value })}
+                                            placeholder="Ej. Coca Cola"
+                                        />
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Precio (L)</label>
+                                            <input
+                                                type="number"
+                                                step="0.01"
+                                                required
+                                                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-4 text-white focus:outline-none focus:ring-2 focus:ring-white/10 focus:border-zinc-500 transition-all font-bold text-lg"
+                                                value={formData.price || ''}
+                                                onChange={e => setFormData({ ...formData, price: parseFloat(e.target.value) })}
+                                                placeholder="0.00"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Talla (Size)</label>
+                                            <input
+                                                type="text"
+                                                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-4 text-white focus:outline-none focus:ring-2 focus:ring-white/10 focus:border-zinc-500 transition-all font-bold"
+                                                value={formData.size || ''}
+                                                onChange={e => setFormData({ ...formData, size: e.target.value })}
+                                                placeholder="ej. 9.5"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Quick Sizing Chips */}
+                                    <div>
+                                        <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-3">Tallas Rápidas</label>
+                                        <div className="grid grid-cols-6 gap-2">
+                                            {['4', '4.5', '5', '5.5', '6', '6.5', '7', '7.5', '8', '8.5', '9', '9.5', '10', '10.5', '11', '12', '13'].map(s => (
+                                                <button
+                                                    key={s}
+                                                    type="button"
+                                                    onClick={() => setFormData({ ...formData, size: s })}
+                                                    className={`py - 2 rounded - lg text - xs font - bold border transition - all ${formData.size === s
+                                                        ? 'bg-white text-black border-white shadow-lg shadow-white/5'
+                                                        : 'bg-zinc-950 text-zinc-400 border-zinc-800 hover:border-zinc-600 hover:text-white'
+                                                        } `}
+                                                >
+                                                    {s}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Categoría</label>
+                                            <input
+                                                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-4 text-white focus:outline-none focus:ring-2 focus:ring-white/10 focus:border-zinc-500 transition-all"
+                                                value={formData.category || ''}
+                                                onChange={e => setFormData({ ...formData, category: e.target.value })}
+                                                placeholder="Ej. Bebidas"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Marca</label>
+                                            <input
+                                                type="text"
+                                                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-4 text-white focus:outline-none focus:ring-2 focus:ring-white/10 focus:border-zinc-500 transition-all"
+                                                value={formData.brand || ''}
+                                                onChange={e => setFormData({ ...formData, brand: e.target.value })}
+                                                placeholder="ej. Nike"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Inventario (Stock)</label>
+                                        <input
+                                            type="number"
+                                            className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-4 text-white focus:outline-none focus:ring-2 focus:ring-white/10 focus:border-zinc-500 transition-all font-bold text-lg"
+                                            value={formData.stock || 0}
+                                            onChange={e => setFormData({ ...formData, stock: parseInt(e.target.value) || 0 })}
+                                            placeholder="0"
+                                        />
+                                        <p className="text-[10px] text-zinc-500 mt-2 font-medium italic">
+                                            ℹ️ Al guardar, se registrará un ajuste de inventario en el historial.
+                                        </p>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Imagen del Producto</label>
+
+                                        {/* Upload Button */}
+                                        <div className="flex flex-col gap-3">
+                                            <button
+                                                type="button"
+                                                onClick={() => document.getElementById('imageInput')?.click()}
+                                                className="w-full bg-zinc-800 text-zinc-300 py-3 rounded-xl border border-dashed border-zinc-600 hover:bg-zinc-700 hover:text-white hover:border-zinc-500 transition-all flex items-center justify-center gap-2 text-sm font-medium"
+                                            >
+                                                <ImageIcon size={18} />
+                                                {formData.image ? 'Cambiar Imagen' : 'Subir Imagen'}
+                                            </button>
+                                            <input
+                                                id="imageInput"
+                                                type="file"
+                                                accept="image/*"
+                                                className="hidden"
+                                                onChange={(e) => {
+                                                    const file = e.target.files?.[0];
+                                                    if (file) {
+                                                        const reader = new FileReader();
+                                                        reader.onload = (event) => {
+                                                            const img = new Image();
+                                                            img.onload = () => {
+                                                                const canvas = document.createElement('canvas');
+                                                                let width = img.width;
+                                                                let height = img.height;
+
+                                                                // Resize if too big (max 800px)
+                                                                const MAX_SIZE = 800;
+                                                                if (width > height) {
+                                                                    if (width > MAX_SIZE) {
+                                                                        height *= MAX_SIZE / width;
+                                                                        width = MAX_SIZE;
+                                                                    }
+                                                                } else {
+                                                                    if (height > MAX_SIZE) {
+                                                                        width *= MAX_SIZE / height;
+                                                                        height = MAX_SIZE;
+                                                                    }
+                                                                }
+
+                                                                canvas.width = width;
+                                                                canvas.height = height;
+                                                                const ctx = canvas.getContext('2d');
+                                                                ctx?.drawImage(img, 0, 0, width, height);
+
+                                                                // Compress to JPEG 70%
+                                                                const base64 = canvas.toDataURL('image/jpeg', 0.7);
+                                                                setFormData({ ...formData, image: base64 });
+                                                            };
+                                                            img.src = event.target?.result as string;
+                                                        };
+                                                        reader.readAsDataURL(file);
+                                                    }
+                                                }}
+                                            />
+
+                                            {/* URL Fallback */}
+                                            <div className="relative">
+                                                <div className="absolute inset-0 flex items-center" aria-hidden="true">
+                                                    <div className="w-full border-t border-zinc-800"></div>
+                                                </div>
+                                                <div className="relative flex justify-center">
+                                                    <span className="bg-zinc-900 px-2 text-xs text-zinc-500">O usa una URL</span>
+                                                </div>
+                                            </div>
+
+                                            <input
+                                                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-zinc-300 focus:outline-none focus:ring-2 focus:ring-white/10 focus:border-zinc-500 transition-all text-sm"
+                                                value={formData.image || ''}
+                                                onChange={e => setFormData({ ...formData, image: e.target.value })}
+                                                placeholder="https://ejemplo.com/imagen.jpg"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="pt-4">
+                                    <button
+                                        type="submit"
+                                        className="w-full bg-white text-black py-4 rounded-xl font-bold text-lg hover:bg-zinc-200 transition-colors flex items-center justify-center gap-2 shadow-lg shadow-white/5 active:scale-[0.98]"
+                                    >
+                                        <Save size={20} />
+                                        <span>Guardar Producto</span>
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 };
