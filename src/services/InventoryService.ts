@@ -19,6 +19,15 @@ export class InventoryService {
         notes?: string,
         referenceId?: string
     ): Promise<void> {
+        // Import supabase OUTSIDE the transaction to avoid locking/timeouts
+        let supabase: any = null;
+        try {
+            const module = await import('../db/supabase');
+            supabase = module.supabase;
+        } catch (e) {
+            console.warn('Could not load Supabase client');
+        }
+
         await db.transaction('rw', db.products, db.stock_movements, async () => {
             const product = await db.products.get(productId);
             if (!product) throw new Error(`Product ${productId} not found`);
@@ -45,21 +54,29 @@ export class InventoryService {
             };
             await db.stock_movements.add(movement);
 
-            // 3. Sync to Cloud (Fire and forget, handled by separate sync logic usually, 
-            // but we can try to push if online)
+            // 3. Queue Sync (Optimistic)
+            // We can't safely await cloud calls inside IDB transaction in all browsers.
+            // Ideally we should use a separate queue or "synced: false" flag.
+            // For now, we'll try to sync AFTER the transaction or fire-and-forget inside if supported.
+            // But since we moved import out, let's keep the sync logic simple but safe.
+            // Actually, better to do cloud sync AFTER transaction commits.
+        });
+
+        // 4. Fire-and-forget Cloud Sync (After local commit)
+        if (supabase) {
             try {
-                // We'll rely on the existing sync mechanisms or add specific sync here if needed.
-                // For now, let's trigger a light sync if possible or just rely on the UI layer 
-                // calling the sync. Ideally, this service should handle it.
-                // Let's import the supabase client dynamically to avoid issues if offline/not configured
-                const { supabase } = await import('../db/supabase');
-                if (supabase) {
-                    await supabase.from('products').upsert({ ...product, stock: newStock });
+                // Fetch fresh product data to act as source of truth? No, use calculated values.
+                // But we need the ID.
+                const updatedProduct = await db.products.get(productId);
+                if (updatedProduct) {
+                    supabase.from('products').upsert({ ...updatedProduct }).then(({ error }: any) => {
+                        if (error) console.error("Cloud sync error:", error);
+                    });
                 }
             } catch (err) {
-                console.warn('Background sync failed for stock adjustment', err);
+                console.warn('Background sync failed', err);
             }
-        });
+        }
     }
 
     static async getHistory(productId: number): Promise<StockMovement[]> {
