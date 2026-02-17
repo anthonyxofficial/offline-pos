@@ -37,13 +37,13 @@ export class InventoryService {
                 throw new Error(`Product ${productId} not found`);
             }
 
-            const previousStock = product.stock || 0;
+            const previousStock = Number(product.stock) || 0;
             const newStock = Math.max(0, previousStock + quantity);
 
             console.log(`[INVENTORY] Product ${product.name} (ID: ${productId}). Old: ${previousStock}, New: ${newStock}`);
 
-            // 1. Update Product Stock
-            await db.products.update(productId, { stock: newStock });
+            // 1. Update Product Stock (and mark unsynced for cloud)
+            await db.products.update(productId, { stock: newStock, synced: false });
 
             // 2. Record Movement
             const movement: StockMovement = {
