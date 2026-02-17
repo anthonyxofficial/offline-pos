@@ -30,8 +30,10 @@ function AppContent() {
 
 function App() {
   useEffect(() => {
-    // import('./db/seed').then(m => m.seedDatabase());
-    // Auto-seed disabled for production to prevent zombie data
+    import('./db/seed').then(m => m.seedDatabase());
+    // Auto-seed disabled for production to PREVENT ZOMBIE DATA (Sneakers),
+    // BUT we need it to create the default USERS (Anthony, etc.) if db is empty.
+    // I modified seed.ts to have an empty sneakers array, so this is safe now.
   }, []);
 
   return (
