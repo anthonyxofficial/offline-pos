@@ -140,15 +140,17 @@ export const ProductsPage = () => {
                     const { error } = await supabase.from('products').upsert({ ...productData, id: id });
 
                     if (error) throw error;
-
                     // If success, mark as synced
                     await db.products.update(id!, { synced: true });
                     console.log("[SYNC] Product synced successfully");
+                    alert("✅ Producto Guardado y Sincronizado con la Nube (Debería salir en el celular)");
                 } else {
                     console.warn("[SYNC] Supabase client is null. Data saved locally only (marked as unsynced).");
+                    alert("⚠️ Guardado SOLO LOCALMENTE. Supabase no está conectado.");
                 }
-            } catch (err) {
+            } catch (err: any) {
                 console.error("Product cloud sync failed:", err);
+                alert(`⚠️ Guardado Local, PERO falló la subida: ${err.message || err}`);
             }
 
             setIsModalOpen(false);
