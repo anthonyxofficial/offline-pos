@@ -30,7 +30,8 @@ function AppContent() {
 
 function App() {
   useEffect(() => {
-    import('./db/seed').then(m => m.seedDatabase());
+    // import('./db/seed').then(m => m.seedDatabase());
+    // Auto-seed disabled for production to prevent zombie data
   }, []);
 
   return (
