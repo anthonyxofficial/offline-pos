@@ -208,8 +208,10 @@ export const initSupabase = async () => {
                         brand: product.brand,
                         size: product.size,
                         stock: product.stock,
-                        image: product.image
+                        image: product.image,
+                        synced: true // Mark as synced so we don't try to upload it back
                     });
+                    console.log('[REALTIME] Product received and saved:', product.name);
                 } else if (payload.eventType === 'DELETE') {
                     await db.products.delete(payload.old.id);
                 }
@@ -242,10 +244,22 @@ export const initSupabase = async () => {
         // Initial Sync
         await syncNow();
 
-        // Periodic sync every 20 seconds
+        // Periodic sync every 15 seconds (Faster)
         setInterval(async () => {
             await syncNow();
-        }, 20000);
+        }, 15000);
+
+        // Smart Sync Triggers (Instant on app open)
+        window.addEventListener('focus', () => {
+            console.log('[FOCUS] App foregrounded, syncing now...');
+            syncNow();
+        });
+        window.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                console.log('[VISIBILITY] App visible, syncing now...');
+                syncNow();
+            }
+        });
 
         return true;
     }
