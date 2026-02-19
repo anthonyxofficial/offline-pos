@@ -45,6 +45,10 @@ export const ProductsPage = () => {
         image: ''
     });
 
+    // Bulk Mode State
+    const [isBulkMode, setIsBulkMode] = useState(false);
+    const [bulkQuantities, setBulkQuantities] = useState<Record<string, number>>({});
+
     const openModal = (product?: Product) => {
         if (product) {
             setEditingId(product.id!);
@@ -64,15 +68,69 @@ export const ProductsPage = () => {
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
-        const p = formData; // Use formData for the product to be saved
+        const p = formData;
 
         if (!p.name || p.price <= 0) return;
 
         try {
+            // BULK CREATION LOGIC
+            if (isBulkMode && !editingId) {
+                const sizesToCreate = Object.entries(bulkQuantities).filter(([_, qty]) => qty > 0);
+                if (sizesToCreate.length === 0) {
+                    alert("Selecciona al menos una talla con cantidad mayor a 0");
+                    return;
+                }
+
+                alert(`Creando ${sizesToCreate.length} variantes... Potencialmente lento, espera.`);
+
+                const { supabase } = await import('../db/supabase');
+
+                await db.transaction('rw', db.products, db.stock_movements, async () => {
+                    for (const [size, qty] of sizesToCreate) {
+                        // Create individual product for this size
+                        const newProduct = { ...p, size, stock: qty, synced: false };
+                        // Remove id if present to ensure new creation
+                        delete newProduct.id;
+
+                        const newId = await db.products.add(newProduct) as number;
+
+                        // Initial Stock Movement
+                        if (currentUser) {
+                            await InventoryService.adjustStock(
+                                newId,
+                                qty,
+                                'initial',
+                                currentUser,
+                                `Inventario Inicial (Bulk ${size})`
+                            );
+                        }
+
+                        // Try Sync (Fire and Forget inside loop or queue? Better queue, but simple sync for now)
+                        if (supabase) {
+                            supabase.from('products').upsert({ ...newProduct, id: newId }).then(({ error }: any) => {
+                                if (!error) {
+                                    db.products.update(newId, { synced: true });
+                                } else {
+                                    console.error("Bulk Sync Error:", error);
+                                }
+                            });
+                        }
+                    }
+                });
+
+                // Reset and Close
+                setIsBulkMode(false);
+                setBulkQuantities({});
+                setIsModalOpen(false);
+                setFormData({ name: '', price: 0, category: '', image: '', brand: '', size: '', stock: 0 });
+                return;
+            }
+
+            // ORIGINAL SINGLE PRODUCT LOGIC
             let id: number | undefined = editingId || undefined;
 
-            // Check if stock changed to record movement
             if (id) {
+                // ... (Update logic remains same)
                 const existing = await db.products.get(id);
                 if (existing && existing.stock !== p.stock) {
                     const diff = (p.stock || 0) - (existing.stock || 0);
@@ -85,24 +143,10 @@ export const ProductsPage = () => {
                             "Edición manual desde inventario"
                         );
                     }
-                    // We don't update stock directly here because ajustStock does it,
-                    // BUT adjustStock updates the DB. We still need to update other fields (name, price, etc.)
-                    // So we update the product *after* or *with* the other fields, but we must be careful not to double update.
-                    // Actually, adjustStock updates the stock in DB. 
-                    // If we call db.products.update(id, p) afterwards, it might overwrite or be redundant.
-                    // Let's rely on adjustStock for stock, and update other fields here.
                 }
-
-                // Exclude stock from direct update if we handled it via service? 
-                // To be safe and simple: Update everything here, but rely on the diff check above to log the movement.
-                // However, `InventoryService.adjustStock` UPDATES the product stock in DB.
-                // So if we run adjustStock, the DB has new stock. 
-                // Then if we run `db.products.update(id, p)`, we just confirm it.
-                // The critical part is LOGGING the movement.
                 await db.products.update(id, { ...p, synced: false });
             } else {
                 id = await db.products.add({ ...p, synced: false }) as number;
-                // Initial stock movement
                 if (p.stock && p.stock > 0 && currentUser) {
                     await InventoryService.adjustStock(
                         id,
@@ -116,37 +160,15 @@ export const ProductsPage = () => {
 
             // Sync to Supabase
             try {
-                // Check if supabase is initialized (imported at top level now)
-                // We'll use a dynamic import for now to avoid breaking changes if not needed, 
-                // BUT we should handle the null case explicitly or retry.
-                // Actually, let's switch to direct import at the top of the file to be safe.
-                // Reverting to dynamic import for this tool call to match the plan 'import supabase directly' means I need to add the import at the top too.
-                // Since I can only replace a chunk, I will use dynamic import but adding a specific check and log.
-
                 const { supabase } = await import('../db/supabase');
-
                 if (supabase) {
-                    const productData = {
-                        name: p.name,
-                        price: p.price,
-                        category: p.category,
-                        brand: p.brand,
-                        size: p.size,
-                        image: p.image,
-                        stock: p.stock
-                    };
-
+                    const productData = { ...p, id, stock: p.stock }; // Ensure stock is sent
                     // @ts-ignore
-                    const { error } = await supabase.from('products').upsert({ ...productData, id: id });
-
+                    const { error } = await supabase.from('products').upsert(productData);
                     if (error) throw error;
-                    // If success, mark as synced
                     await db.products.update(id!, { synced: true });
-                    console.log("[SYNC] Product synced successfully");
-                } else {
-                    console.warn("[SYNC] Supabase client is null. Data saved locally only (marked as unsynced).");
                 }
-            } catch (err: any) {
+            } catch (err) {
                 console.error("Product cloud sync failed:", err);
             }
 
@@ -442,6 +464,7 @@ export const ProductsPage = () => {
                                 </div>
 
                                 <div className="space-y-4">
+                                    {/* Name Input */}
                                     <div>
                                         <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Nombre</label>
                                         <input
@@ -449,10 +472,11 @@ export const ProductsPage = () => {
                                             className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-4 text-white focus:outline-none focus:ring-2 focus:ring-white/10 focus:border-zinc-500 transition-all font-medium"
                                             value={formData.name}
                                             onChange={e => setFormData({ ...formData, name: e.target.value })}
-                                            placeholder="Ej. Coca Cola"
+                                            placeholder="Ej. Jordan 4 Retro"
                                         />
                                     </div>
 
+                                    {/* Price & Brand Grid */}
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
                                             <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Precio (L)</label>
@@ -467,48 +491,6 @@ export const ProductsPage = () => {
                                             />
                                         </div>
                                         <div>
-                                            <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Talla (Size)</label>
-                                            <input
-                                                type="text"
-                                                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-4 text-white focus:outline-none focus:ring-2 focus:ring-white/10 focus:border-zinc-500 transition-all font-bold"
-                                                value={formData.size || ''}
-                                                onChange={e => setFormData({ ...formData, size: e.target.value })}
-                                                placeholder="ej. 9.5"
-                                            />
-                                        </div>
-                                    </div>
-
-                                    {/* Quick Sizing Chips */}
-                                    <div>
-                                        <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-3">Tallas Rápidas</label>
-                                        <div className="grid grid-cols-6 gap-2">
-                                            {['36', '36.5', '37', '37.5', '38', '38.5', '39', '39.5', '40', '40.5', '41', '41.5', '42', '42.5', '43', '43.5', '44', '44.5', '45', '45.5', '46'].map(s => (
-                                                <button
-                                                    key={s}
-                                                    type="button"
-                                                    onClick={() => setFormData({ ...formData, size: s })}
-                                                    className={`py - 2 rounded - lg text - xs font - bold border transition - all ${formData.size === s
-                                                        ? 'bg-white text-black border-white shadow-lg shadow-white/5'
-                                                        : 'bg-zinc-950 text-zinc-400 border-zinc-800 hover:border-zinc-600 hover:text-white'
-                                                        } `}
-                                                >
-                                                    {s}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Categoría</label>
-                                            <input
-                                                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-4 text-white focus:outline-none focus:ring-2 focus:ring-white/10 focus:border-zinc-500 transition-all"
-                                                value={formData.category || ''}
-                                                onChange={e => setFormData({ ...formData, category: e.target.value })}
-                                                placeholder="Ej. Bebidas"
-                                            />
-                                        </div>
-                                        <div>
                                             <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Marca</label>
                                             <input
                                                 type="text"
@@ -520,24 +502,84 @@ export const ProductsPage = () => {
                                         </div>
                                     </div>
 
+                                    {/* Category */}
                                     <div>
-                                        <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Inventario (Stock)</label>
+                                        <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Categoría</label>
                                         <input
-                                            type="number"
-                                            className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-4 text-white focus:outline-none focus:ring-2 focus:ring-white/10 focus:border-zinc-500 transition-all font-bold text-lg"
-                                            value={formData.stock || 0}
-                                            onChange={e => setFormData({ ...formData, stock: parseInt(e.target.value) || 0 })}
-                                            placeholder="0"
+                                            className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-4 text-white focus:outline-none focus:ring-2 focus:ring-white/10 focus:border-zinc-500 transition-all"
+                                            value={formData.category || ''}
+                                            onChange={e => setFormData({ ...formData, category: e.target.value })}
+                                            placeholder="Ej. Sneakers"
                                         />
-                                        <p className="text-[10px] text-zinc-500 mt-2 font-medium italic">
-                                            ℹ️ Al guardar, se registrará un ajuste de inventario en el historial.
-                                        </p>
                                     </div>
 
+                                    {/* Bulk Mode Toggle */}
+                                    {!editingId && (
+                                        <div className="flex items-center gap-2 p-3 bg-indigo-500/10 border border-indigo-500/30 rounded-xl cursor-pointer" onClick={() => setIsBulkMode(!isBulkMode)}>
+                                            <div className={`w-10 h-6 rounded-full p-1 transition-colors ${isBulkMode ? 'bg-indigo-500' : 'bg-zinc-700'}`}>
+                                                <div className={`w-4 h-4 bg-white rounded-full transition-transform ${isBulkMode ? 'translate-x-4' : ''}`} />
+                                            </div>
+                                            <span className="text-sm font-bold text-indigo-300 select-none">Crear Múltiples Tallas (Bulk)</span>
+                                        </div>
+                                    )}
+
+                                    {/* Dynamic Size/Stock Input */}
+                                    {isBulkMode && !editingId ? (
+                                        <div className="bg-zinc-950/50 p-4 rounded-xl border border-zinc-800">
+                                            <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-3">Inventario por Talla</label>
+                                            <div className="grid grid-cols-4 gap-2">
+                                                {['36', '36.5', '37', '37.5', '38', '38.5', '39', '39.5', '40', '40.5', '41', '41.5', '42', '42.5', '43', '43.5', '44', '44.5', '45', '45.5', '46'].map(size => {
+                                                    const qty = bulkQuantities[size] || 0;
+                                                    return (
+                                                        <div key={size} className={`flex flex-col items-center p-2 rounded-lg border transition-all ${qty > 0 ? 'bg-emerald-900/20 border-emerald-500/50' : 'bg-zinc-900 border-zinc-800'}`}>
+                                                            <span className="text-xs font-bold text-zinc-400 mb-1">{size}</span>
+                                                            <input
+                                                                type="number"
+                                                                min="0"
+                                                                className={`w-full text-center bg-transparent font-bold focus:outline-none ${qty > 0 ? 'text-white' : 'text-zinc-600'}`}
+                                                                placeholder="0"
+                                                                value={qty || ''}
+                                                                onChange={(e) => {
+                                                                    const val = parseInt(e.target.value) || 0;
+                                                                    setBulkQuantities(prev => ({ ...prev, [size]: val }));
+                                                                }}
+                                                            />
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                            <p className="text-[10px] text-zinc-500 mt-3 text-center">
+                                                Se crearán productos individuales para cada talla con cantidad &gt; 0
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Talla</label>
+                                                <input
+                                                    type="text"
+                                                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-4 text-white focus:outline-none focus:ring-2 focus:ring-white/10 focus:border-zinc-500 transition-all font-bold"
+                                                    value={formData.size || ''}
+                                                    onChange={e => setFormData({ ...formData, size: e.target.value })}
+                                                    placeholder="ej. 9.5"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Inventario</label>
+                                                <input
+                                                    type="number"
+                                                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-4 text-white focus:outline-none focus:ring-2 focus:ring-white/10 focus:border-zinc-500 transition-all font-bold text-lg"
+                                                    value={formData.stock || 0}
+                                                    onChange={e => setFormData({ ...formData, stock: parseInt(e.target.value) || 0 })}
+                                                    placeholder="0"
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Image Upload Logic (unchanged) */}
                                     <div>
                                         <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Imagen del Producto</label>
-
-                                        {/* Upload Button */}
                                         <div className="flex flex-col gap-3">
                                             <button
                                                 type="button"
@@ -562,8 +604,6 @@ export const ProductsPage = () => {
                                                                 const canvas = document.createElement('canvas');
                                                                 let width = img.width;
                                                                 let height = img.height;
-
-                                                                // Resize if too big (max 800px)
                                                                 const MAX_SIZE = 800;
                                                                 if (width > height) {
                                                                     if (width > MAX_SIZE) {
@@ -576,13 +616,10 @@ export const ProductsPage = () => {
                                                                         height = MAX_SIZE;
                                                                     }
                                                                 }
-
                                                                 canvas.width = width;
                                                                 canvas.height = height;
                                                                 const ctx = canvas.getContext('2d');
                                                                 ctx?.drawImage(img, 0, 0, width, height);
-
-                                                                // Compress to JPEG 70%
                                                                 const base64 = canvas.toDataURL('image/jpeg', 0.7);
                                                                 setFormData({ ...formData, image: base64 });
                                                             };
@@ -592,17 +629,6 @@ export const ProductsPage = () => {
                                                     }
                                                 }}
                                             />
-
-                                            {/* URL Fallback */}
-                                            <div className="relative">
-                                                <div className="absolute inset-0 flex items-center" aria-hidden="true">
-                                                    <div className="w-full border-t border-zinc-800"></div>
-                                                </div>
-                                                <div className="relative flex justify-center">
-                                                    <span className="bg-zinc-900 px-2 text-xs text-zinc-500">O usa una URL</span>
-                                                </div>
-                                            </div>
-
                                             <input
                                                 className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-zinc-300 focus:outline-none focus:ring-2 focus:ring-white/10 focus:border-zinc-500 transition-all text-sm"
                                                 value={formData.image || ''}
@@ -619,7 +645,7 @@ export const ProductsPage = () => {
                                         className="w-full bg-white text-black py-4 rounded-xl font-bold text-lg hover:bg-zinc-200 transition-colors flex items-center justify-center gap-2 shadow-lg shadow-white/5 active:scale-[0.98]"
                                     >
                                         <Save size={20} />
-                                        <span>Guardar Producto</span>
+                                        <span>{isBulkMode ? 'Crear Múltiples Productos' : 'Guardar Producto'}</span>
                                     </button>
                                 </div>
                             </form>
