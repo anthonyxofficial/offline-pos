@@ -49,13 +49,32 @@ export const ProductsPage = () => {
     const [isBulkMode, setIsBulkMode] = useState(false);
     const [bulkQuantities, setBulkQuantities] = useState<Record<string, number>>({});
 
-    const openModal = (product?: Product) => {
-        if (product) {
-            setEditingId(product.id!);
-            setFormData({ ...product });
+    const openModal = (input?: Product | Product[]) => {
+        if (Array.isArray(input)) {
+            // EDITING A GROUP (BULK MODE)
+            const first = input[0];
+            setEditingId(null); // Strategy: Treat group edit as a "Bulk" operation, not single ID edit
+            setFormData({ ...first, size: '', stock: 0 }); // Base data from first item
+
+            // Pre-fill quantities
+            const quantities: Record<string, number> = {};
+            input.forEach(p => {
+                if (p.size) quantities[p.size.toString()] = p.stock || 0;
+            });
+            setBulkQuantities(quantities);
+            setIsBulkMode(true);
+        } else if (input) {
+            // EDITING SINGLE ITEM (Legacy/Direct)
+            setEditingId(input.id!);
+            setFormData({ ...input });
+            setIsBulkMode(false);
+            setBulkQuantities({});
         } else {
+            // CREATING NEW
             setEditingId(null);
             setFormData({ name: '', price: 0, category: '', image: '', brand: '', size: '', stock: 0 });
+            setIsBulkMode(false);
+            setBulkQuantities({});
         }
         setIsModalOpen(true);
     };
@@ -73,43 +92,92 @@ export const ProductsPage = () => {
         if (!p.name || p.price <= 0) return;
 
         try {
-            // BULK CREATION LOGIC
-            if (isBulkMode && !editingId) {
-                const sizesToCreate = Object.entries(bulkQuantities).filter(([_, qty]) => qty > 0);
-                if (sizesToCreate.length === 0) {
-                    alert("Selecciona al menos una talla con cantidad mayor a 0");
+            // BULK CREATION / UPDATE LOGIC
+            if (isBulkMode) {
+                const sizesToProcess = Object.entries(bulkQuantities).filter(([_, qty]) => qty >= 0); // Include 0 to potentially clear stock? Or just > 0?
+                // Let's stick to > 0 to be safe for now, or allow 0 if we want to "delete" via update?
+                // For simplicity: We upsert. If user wants to delete a size, they might need a specific delete action,
+                // OR we check existing products and if quantity is 0, we can zero it out.
+
+                if (sizesToProcess.length === 0) {
+                    alert("Selecciona al menos una talla con cantidad.");
                     return;
                 }
 
-                alert(`Creando ${sizesToCreate.length} variantes... Potencialmente lento, espera.`);
+                alert(`Procesando variantes...`);
 
                 const { supabase } = await import('../db/supabase');
 
                 await db.transaction('rw', db.products, db.stock_movements, async () => {
-                    for (const [size, qty] of sizesToCreate) {
-                        // Create individual product for this size
-                        const newProduct = { ...p, size, stock: qty, synced: false };
-                        // Remove id if present to ensure new creation
-                        delete newProduct.id;
+                    // Check for EXISTING products with this name to Update instead of Create
+                    const existingProducts = await db.products.where('name').equals(p.name).toArray();
 
-                        const newId = await db.products.add(newProduct) as number;
+                    for (const [size, qty] of sizesToProcess) {
+                        const existingMatch = existingProducts.find(ep => ep.size?.toString() === size.toString());
 
-                        // Initial Stock Movement
-                        if (currentUser) {
-                            await InventoryService.adjustStock(
-                                newId,
-                                qty,
-                                'initial',
-                                currentUser,
-                                `Inventario Inicial (Bulk ${size})`
-                            );
+                        let targetId: number;
+
+                        // 1. Determine ID (Update existing or Create new)
+                        if (existingMatch) {
+                            targetId = existingMatch.id!;
+
+                            // Check for stock change
+                            if (existingMatch.stock !== qty) {
+                                const diff = qty - (existingMatch.stock || 0);
+                                if (diff !== 0 && currentUser) {
+                                    await InventoryService.adjustStock(
+                                        targetId,
+                                        diff,
+                                        'adjustment',
+                                        currentUser,
+                                        `Ajuste Bulk (Talla ${size})`
+                                    );
+                                }
+                            }
+                            // Update other fields
+                            await db.products.update(targetId, {
+                                price: p.price,
+                                category: p.category,
+                                brand: p.brand,
+                                image: p.image,
+                                synced: false
+                            });
+                        } else {
+                            // Create New
+                            if (qty > 0) { // Only create new if > 0
+                                const newProduct = { ...p, size, stock: qty, synced: false };
+                                delete newProduct.id;
+                                targetId = await db.products.add(newProduct) as number;
+
+                                // Initial Stock
+                                if (currentUser) {
+                                    await InventoryService.adjustStock(
+                                        targetId,
+                                        qty,
+                                        'initial',
+                                        currentUser,
+                                        `Inicial Bulk (Talla ${size})`
+                                    );
+                                }
+                            } else {
+                                continue; // Skip creating 0 stock items
+                            }
                         }
 
-                        // Try Sync (Fire and Forget inside loop or queue? Better queue, but simple sync for now)
-                        if (supabase) {
-                            supabase.from('products').upsert({ ...newProduct, id: newId }).then(({ error }: any) => {
+                        // Sync
+                        if (supabase && targetId) {
+                            // We need to fetch the full object or construct it.
+                            // To be safe, let's construct it with the ID.
+                            const productData = {
+                                ...p,
+                                id: targetId,
+                                size,
+                                stock: qty
+                            };
+
+                            supabase.from('products').upsert(productData).then(({ error }: any) => {
                                 if (!error) {
-                                    db.products.update(newId, { synced: true });
+                                    db.products.update(targetId, { synced: true });
                                 } else {
                                     console.error("Bulk Sync Error:", error);
                                 }
@@ -180,15 +248,18 @@ export const ProductsPage = () => {
         }
     };
 
-    const handleDelete = async (id: number) => {
-        if (!confirm('¿Eliminar este producto?')) return;
-        await db.products.delete(id);
+    const handleDelete = async (input: number | Product[]) => {
+        if (!confirm('¿Eliminar producto(s)? Esta acción no se puede deshacer.')) return;
+
+        const idsToDelete = Array.isArray(input) ? input.map(p => p.id!) : [input];
+
+        await db.products.bulkDelete(idsToDelete);
 
         // Sync to Supabase
         try {
             const { supabase } = await import('../db/supabase');
             if (supabase) {
-                await supabase.from('products').delete().eq('id', id);
+                await supabase.from('products').delete().in('id', idsToDelete);
             }
         } catch (err) {
             console.error("Product delete sync failed:", err);
@@ -333,105 +404,88 @@ export const ProductsPage = () => {
             </div>
 
             <div className="grid grid-cols-1 gap-3">
-                {products.map(p => (
-                    <div key={p.id} className="bg-zinc-900 p-3 sm:p-4 rounded-2xl flex items-center gap-2 sm:gap-4 border border-zinc-800 hover:border-zinc-700 transition-all group">
-                        {/* Thumbnail */}
-                        <div className="w-14 h-14 sm:w-16 sm:h-16 bg-zinc-800 rounded-xl shrink-0 overflow-hidden flex items-center justify-center border border-zinc-700 relative">
-                            {p.image ? (
-                                <img src={p.image} alt={p.name} loading="lazy" decoding="async" className="w-full h-full object-cover" />
-                            ) : (
-                                <ImageIcon size={20} className="text-zinc-600 sm:w-6 sm:h-6" />
-                            )}
-                            {/* Stock Indicator overlay if low */}
-                            {p.stock !== undefined && p.stock <= 2 && (
-                                <div className="absolute inset-0 bg-red-500/20 ring-1 ring-inset ring-red-500/50 rounded-xl flex items-center justify-center">
-                                    <span className="text-[10px] bg-red-600 text-white px-1 rounded font-bold">BAJO</span>
-                                </div>
-                            )}
-                        </div>
+                {Object.values(products.reduce((acc, product) => {
+                    const key = product.name;
+                    if (!acc[key]) acc[key] = [];
+                    acc[key].push(product);
+                    return acc;
+                }, {} as Record<string, Product[]>)).map(group => {
+                    const p = group[0]; // Representative product
+                    const totalStock = group.reduce((sum, item) => sum + (item.stock || 0), 0);
+                    const variantsCount = group.length;
 
-                        {/* Info - Stacked for mobile */}
-                        <div className="flex-1 min-w-0">
-                            <h3 className="font-bold text-white text-sm sm:text-lg truncate leading-tight">{p.name}</h3>
-                            <div className="flex flex-wrap items-center gap-1 sm:gap-2 mt-0.5 sm:mt-1">
-                                {p.category && (
-                                    <span className="text-[9px] sm:text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700">
-                                        {p.category}
-                                    </span>
+                    return (
+                        <div key={p.name} className="bg-zinc-900 p-3 sm:p-4 rounded-2xl flex items-center gap-2 sm:gap-4 border border-zinc-800 hover:border-zinc-700 transition-all group">
+                            {/* Thumbnail */}
+                            <div className="w-14 h-14 sm:w-16 sm:h-16 bg-zinc-800 rounded-xl shrink-0 overflow-hidden flex items-center justify-center border border-zinc-700 relative">
+                                {p.image ? (
+                                    <img src={p.image} alt={p.name} loading="lazy" decoding="async" className="w-full h-full object-cover" />
+                                ) : (
+                                    <ImageIcon size={20} className="text-zinc-600 sm:w-6 sm:h-6" />
                                 )}
-                                <p className="font-bold text-zinc-400 text-xs sm:text-sm">L {p.price.toFixed(2)}</p>
+                                {/* Stock Indicator overlay if low */}
+                                {totalStock <= 2 && (
+                                    <div className="absolute inset-0 bg-red-500/20 ring-1 ring-inset ring-red-500/50 rounded-xl flex items-center justify-center">
+                                        <span className="text-[10px] bg-red-600 text-white px-1 rounded font-bold">BAJO</span>
+                                    </div>
+                                )}
                             </div>
-                        </div>
 
-                        {/* Quick Stock Controls (Admin Only) - Compact on mobile */}
-                        {isAdmin && (
-                            <div className="flex items-center bg-zinc-950 rounded-lg sm:rounded-xl border border-zinc-800 p-0.5 sm:p-1">
-                                <button
-                                    onClick={async (e) => {
-                                        e.stopPropagation();
-                                        if (currentUser) {
-                                            await InventoryService.adjustStock(
-                                                p.id!,
-                                                -1,
-                                                'adjustment',
-                                                currentUser,
-                                                "Ajuste rápido (-1)"
-                                            );
-                                        }
-                                    }}
-                                    className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-md sm:rounded-lg transition-colors font-bold text-sm"
-                                >
-                                    -
-                                </button>
-                                <div className="w-6 sm:w-8 text-center text-[10px] sm:text-xs font-black text-white">
-                                    {p.stock || 0}
+                            {/* Info - Stacked for mobile */}
+                            <div className="flex-1 min-w-0">
+                                <h3 className="font-bold text-white text-sm sm:text-lg truncate leading-tight">{p.name}</h3>
+                                <div className="flex flex-wrap items-center gap-1 sm:gap-2 mt-0.5 sm:mt-1">
+                                    {p.category && (
+                                        <span className="text-[9px] sm:text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700">
+                                            {p.category}
+                                        </span>
+                                    )}
+                                    <p className="font-bold text-zinc-400 text-xs sm:text-sm">L {p.price.toFixed(2)}</p>
+                                    <span className="text-[10px] text-zinc-600 font-medium">
+                                        ({variantsCount} tallas)
+                                    </span>
                                 </div>
-                                <button
-                                    onClick={async (e) => {
-                                        e.stopPropagation();
-                                        if (currentUser) {
-                                            await InventoryService.adjustStock(
-                                                p.id!,
-                                                1,
-                                                'restock',
-                                                currentUser,
-                                                "Ajuste rápido (+1)"
-                                            );
-                                        }
-                                    }}
-                                    className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-md sm:rounded-lg transition-colors font-bold text-sm"
-                                >
-                                    +
-                                </button>
                             </div>
-                        )}
 
-                        {/* Actions (Admin Only) - Smaller on mobile */}
-                        {isAdmin && (
-                            <div className="flex gap-1 sm:gap-2">
-                                <button
-                                    onClick={(e) => handleOpenKardex(p, e)}
-                                    className="p-2 sm:p-3 bg-indigo-900/20 text-indigo-400 rounded-lg sm:rounded-xl hover:bg-indigo-900/40 hover:text-indigo-300 transition-colors border border-indigo-900/30"
-                                    title="Ver Historial"
-                                >
-                                    <History size={14} className="sm:w-[18px] sm:h-[18px]" />
-                                </button>
-                                <button
-                                    onClick={() => openModal(p)}
-                                    className="p-2 sm:p-3 bg-zinc-800 text-zinc-300 rounded-lg sm:rounded-xl hover:bg-zinc-700 hover:text-white transition-colors border border-zinc-700"
-                                >
-                                    <Pencil size={14} className="sm:w-[18px] sm:h-[18px]" />
-                                </button>
-                                <button
-                                    onClick={() => handleDelete(p.id!)}
-                                    className="p-2 sm:p-3 bg-red-900/10 text-red-400 rounded-lg sm:rounded-xl hover:bg-red-900/30 hover:text-red-300 transition-colors border border-red-900/20"
-                                >
-                                    <Trash2 size={16} className="sm:w-[20px] sm:h-[20px]" />
-                                </button>
-                            </div>
-                        )}
-                    </div>
-                ))}
+                            {/* Quick Stock Controls (Admin Only) - Compact on mobile */}
+                            {isAdmin && (
+                                <div className="flex items-center bg-zinc-950 rounded-lg sm:rounded-xl border border-zinc-800 p-0.5 sm:p-1">
+                                    <div className="px-2 sm:px-3 text-center">
+                                        <span className="block text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Total</span>
+                                        <span className={`text-sm sm:text-base font-black ${totalStock > 0 ? 'text-white' : 'text-red-500'}`}>
+                                            {totalStock}
+                                        </span>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Actions (Admin Only) - Smaller on mobile */}
+                            {isAdmin && (
+                                <div className="flex gap-1 sm:gap-2">
+                                    <button
+                                        onClick={(e) => handleOpenKardex(p, e)}
+                                        className="p-2 sm:p-3 bg-indigo-900/20 text-indigo-400 rounded-lg sm:rounded-xl hover:bg-indigo-900/40 hover:text-indigo-300 transition-colors border border-indigo-900/30"
+                                        title="Ver Historial"
+                                    >
+                                        <History size={14} className="sm:w-[18px] sm:h-[18px]" />
+                                    </button>
+                                    <button
+                                        onClick={() => openModal(group)}
+                                        className="p-2 sm:p-3 bg-zinc-800 text-zinc-300 rounded-lg sm:rounded-xl hover:bg-zinc-700 hover:text-white transition-colors border border-zinc-700"
+                                    >
+                                        <Pencil size={14} className="sm:w-[18px] sm:h-[18px]" />
+                                    </button>
+                                    <button
+                                        onClick={() => handleDelete(group)}
+                                        className="p-2 sm:p-3 bg-red-900/10 text-red-400 rounded-lg sm:rounded-xl hover:bg-red-900/30 hover:text-red-300 transition-colors border border-red-900/20"
+                                    >
+                                        <Trash2 size={16} className="sm:w-[20px] sm:h-[20px]" />
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    )
+                })}
             </div>
 
             {/* Modal */}
