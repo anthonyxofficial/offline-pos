@@ -8,7 +8,7 @@ interface SizeSelectorModalProps {
     onSelect: (size: string) => void;
 }
 
-const SIZES = ['4', '4.5', '5', '5.5', '6', '6.5', '7', '7.5', '8', '8.5', '9', '9.5', '10', '10.5', '11', '12', '13'];
+const SIZES = ['36', '36.5', '37', '37.5', '38', '38.5', '39', '39.5', '40', '40.5', '41', '41.5', '42', '42.5', '43', '43.5', '44', '44.5', '45', '45.5', '46'];
 
 export const SizeSelectorModal = ({ isOpen, onClose, product, onSelect }: SizeSelectorModalProps) => {
     if (!isOpen || !product) return null;

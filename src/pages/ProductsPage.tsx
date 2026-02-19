@@ -482,7 +482,7 @@ export const ProductsPage = () => {
                                     <div>
                                         <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-3">Tallas Rápidas</label>
                                         <div className="grid grid-cols-6 gap-2">
-                                            {['4', '4.5', '5', '5.5', '6', '6.5', '7', '7.5', '8', '8.5', '9', '9.5', '10', '10.5', '11', '12', '13'].map(s => (
+                                            {['36', '36.5', '37', '37.5', '38', '38.5', '39', '39.5', '40', '40.5', '41', '41.5', '42', '42.5', '43', '43.5', '44', '44.5', '45', '45.5', '46'].map(s => (
                                                 <button
                                                     key={s}
                                                     type="button"
