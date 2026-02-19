@@ -1,5 +1,7 @@
 import { X } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import type { Product } from '../db/db';
+import { db } from '../db/db';
 
 interface SizeSelectorModalProps {
     isOpen: boolean;
@@ -11,6 +13,23 @@ interface SizeSelectorModalProps {
 const SIZES = ['36', '36.5', '37', '37.5', '38', '38.5', '39', '39.5', '40', '40.5', '41', '41.5', '42', '42.5', '43', '43.5', '44', '44.5', '45', '45.5', '46'];
 
 export const SizeSelectorModal = ({ isOpen, onClose, product, onSelect }: SizeSelectorModalProps) => {
+    const [stockMap, setStockMap] = useState<Record<string, number>>({});
+
+    useEffect(() => {
+        if (isOpen && product) {
+            // Fetch all products with same name to find size variants
+            db.products.where('name').equals(product.name).toArray().then(variants => {
+                const map: Record<string, number> = {};
+                variants.forEach(v => {
+                    if (v.size) {
+                        map[v.size.toString()] = v.stock || 0;
+                    }
+                });
+                setStockMap(map);
+            });
+        }
+    }, [isOpen, product]);
+
     if (!isOpen || !product) return null;
 
     return (
@@ -28,18 +47,29 @@ export const SizeSelectorModal = ({ isOpen, onClose, product, onSelect }: SizeSe
 
                 <div className="p-6">
                     <div className="grid grid-cols-4 gap-2">
-                        {SIZES.map(size => (
-                            <button
-                                key={size}
-                                onClick={() => {
-                                    onSelect(size);
-                                    onClose();
-                                }}
-                                className="py-3 bg-zinc-950 text-white border border-zinc-800 rounded-xl font-bold text-sm hover:bg-white hover:text-black hover:border-white transition-all active:scale-90"
-                            >
-                                {size}
-                            </button>
-                        ))}
+                        {SIZES.map(size => {
+                            const stock = stockMap[size];
+                            const hasStock = stock !== undefined && stock > 0;
+
+                            return (
+                                <button
+                                    key={size}
+                                    onClick={() => {
+                                        onSelect(size);
+                                        onClose();
+                                    }}
+                                    className={`py-2 flex flex-col items-center justify-center border rounded-xl transition-all active:scale-95 ${hasStock
+                                            ? 'bg-zinc-950 text-white border-zinc-700 hover:border-white hover:bg-zinc-800'
+                                            : 'bg-zinc-950/50 text-zinc-600 border-zinc-900 hover:border-zinc-800'
+                                        }`}
+                                >
+                                    <span className={`font-bold text-sm ${hasStock ? 'text-white' : 'text-zinc-600'}`}>{size}</span>
+                                    <span className={`text-[10px] font-mono ${hasStock ? 'text-emerald-400' : 'text-zinc-700'}`}>
+                                        {stock !== undefined ? `${stock} ud.` : '-'}
+                                    </span>
+                                </button>
+                            )
+                        })}
                     </div>
 
                     <button

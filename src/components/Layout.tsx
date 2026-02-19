@@ -12,7 +12,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
     const [time, setTime] = React.useState(new Date());
 
     React.useEffect(() => {
-        console.log("POS v1.3.17 (EU Sizes) Loaded");
+        console.log("POS v1.3.18 (Size Stock) Loaded");
         const timer = setInterval(() => setTime(new Date()), 1000);
         return () => clearInterval(timer);
     }, []);
@@ -114,7 +114,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
             </nav>
 
             <main className="flex-1 overflow-hidden relative pb-16 md:pb-0">
-                <div className="absolute top-2 right-2 z-50 pointer-events-none opacity-30 text-[10px] text-white font-mono mix-blend-overlay">v1.3.17 (EU Sizes)</div>
+                <div className="absolute top-2 right-2 z-50 pointer-events-none opacity-30 text-[10px] text-white font-mono mix-blend-overlay">v1.3.18 (Size Stock)</div>
                 {/* Background Gradient */}
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-purple-900/20 via-zinc-950 to-zinc-950 z-0 pointer-events-none" />
 
