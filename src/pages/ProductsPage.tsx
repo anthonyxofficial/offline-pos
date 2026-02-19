@@ -145,7 +145,7 @@ export const ProductsPage = () => {
                         } else {
                             // Create New
                             if (qty > 0) { // Only create new if > 0
-                                const newProduct = { ...p, size, stock: qty, synced: false };
+                                const newProduct = { ...p, size, stock: 0, synced: false };
                                 delete newProduct.id;
                                 targetId = await db.products.add(newProduct) as number;
 
@@ -214,7 +214,8 @@ export const ProductsPage = () => {
                 }
                 await db.products.update(id, { ...p, synced: false });
             } else {
-                id = await db.products.add({ ...p, synced: false }) as number;
+                // Initialize with 0 stock to avoid double counting
+                id = await db.products.add({ ...p, stock: 0, synced: false }) as number;
                 if (p.stock && p.stock > 0 && currentUser) {
                     await InventoryService.adjustStock(
                         id,

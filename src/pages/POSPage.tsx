@@ -44,9 +44,21 @@ export const POSPage = () => {
         setIsSizeModalOpen(true);
     };
 
-    const confirmAddToCart = (size: string) => {
+    const confirmAddToCart = async (size: string) => {
         if (selectedProductForSize) {
-            addToCart(selectedProductForSize, size);
+            // Find specific variant ID for this size
+            const variant = await db.products
+                .where('name').equals(selectedProductForSize.name)
+                .filter(p => p.size === size)
+                .first();
+
+            if (variant) {
+                addToCart(variant, size);
+            } else {
+                // Fallback (shouldn't happen if logic is correct)
+                console.error("Variant not found for size:", size);
+                addToCart({ ...selectedProductForSize, size }, size);
+            }
         }
     };
 
