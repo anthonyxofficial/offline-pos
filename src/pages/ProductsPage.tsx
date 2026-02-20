@@ -143,8 +143,39 @@ export const ProductsPage = () => {
                                 synced: false
                             });
                         } else {
-                            // Create New
-                            if (qty > 0) { // Only create new if > 0
+                            // Check if there is an existing product with NO size that we can reuse
+                            const sizelessProduct = existingProducts.find(ep => !ep.size || ep.size.toString().trim() === '');
+
+                            if (sizelessProduct) {
+                                targetId = sizelessProduct.id!;
+
+                                // Update its size to the new size and other fields
+                                await db.products.update(targetId, {
+                                    size: size,
+                                    price: p.price,
+                                    category: p.category,
+                                    brand: p.brand,
+                                    image: p.image,
+                                    synced: false
+                                });
+
+                                // Check for stock change
+                                if (sizelessProduct.stock !== qty) {
+                                    const diff = qty - (sizelessProduct.stock || 0);
+                                    if (diff !== 0 && currentUser) {
+                                        await InventoryService.adjustStock(
+                                            targetId,
+                                            diff,
+                                            'adjustment',
+                                            currentUser,
+                                            `Asignación de talla ${size}`
+                                        );
+                                    }
+                                }
+
+                                // Mark it so we don't reuse it for the next size
+                                sizelessProduct.size = size;
+                            } else if (qty > 0) { // Only create new if > 0
                                 const newProduct = { ...p, size, stock: 0, synced: false };
                                 delete newProduct.id;
                                 targetId = await db.products.add(newProduct) as number;

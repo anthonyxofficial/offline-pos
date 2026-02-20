@@ -72,7 +72,22 @@ export const POSPage = () => {
             if (search) {
                 filtered = filtered.filter(p => p.name.toLowerCase().includes(search.toLowerCase()));
             }
-            return filtered;
+
+            // Group by name to avoid duplicate cards for size variants
+            const grouped = filtered.reduce((acc, product) => {
+                const key = product.name;
+                if (!acc[key]) {
+                    acc[key] = { ...product, groupedVariants: [], totalStock: 0 };
+                }
+                acc[key].groupedVariants.push(product);
+                acc[key].totalStock += (product.stock || 0);
+                return acc;
+            }, {} as Record<string, any>);
+
+            return Object.values(grouped).map(group => ({
+                ...group.groupedVariants[0], // Use first variant as representative
+                stock: group.totalStock      // Override stock to show total across all sizes
+            })) as Product[];
         }),
         [search, activeCategory]
     );
