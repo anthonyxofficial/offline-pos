@@ -478,6 +478,50 @@ export const BalancePage = () => {
                 </div>
             </div>
 
+            {/* Sales by Salesperson Grid */}
+            <div className="max-w-7xl mx-auto px-6 mb-10">
+                <h3 className="font-bold text-zinc-400 uppercase text-xs tracking-widest mb-4 flex items-center gap-2">
+                    <UserPlus size={16} className="text-indigo-400" /> Rendimiento por Vendedor
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {Array.from(
+                        (sales || []).reduce((acc, sale) => {
+                            const id = sale.salespersonId;
+                            if (!acc.has(id)) {
+                                acc.set(id, { name: sale.salespersonName || 'Desconocido', total: 0, count: 0 });
+                            }
+                            const stats = acc.get(id)!;
+                            stats.total += sale.total;
+                            stats.count += 1;
+                            return acc;
+                        }, new Map<number, { name: string; total: number; count: number }>())
+                            .values()
+                    )
+                        .sort((a, b) => b.total - a.total)
+                        .map((seller, i) => (
+                            <div key={i} className="bg-zinc-900/40 p-5 rounded-3xl border border-zinc-800 flex items-center justify-between group hover:border-zinc-600 transition-all">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center font-black overflow-hidden border border-indigo-500/20">
+                                        {seller.name.substring(0, 2).toUpperCase()}
+                                    </div>
+                                    <div>
+                                        <p className="font-bold text-white text-sm">{seller.name}</p>
+                                        <p className="text-xs text-zinc-500 font-medium">{seller.count} {seller.count === 1 ? 'venta' : 'ventas'}</p>
+                                    </div>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-lg font-black text-emerald-400 border-b border-emerald-900/50 pb-0.5 mb-0.5">L {seller.total.toLocaleString('es-HN', { minimumFractionDigits: 2 })}</p>
+                                </div>
+                            </div>
+                        ))}
+                    {(sales || []).length === 0 && (
+                        <div className="col-span-full bg-zinc-900/20 p-6 rounded-3xl border border-zinc-800 text-center text-zinc-600 italic text-sm">
+                            No hay datos de ventas para mostrar en este período.
+                        </div>
+                    )}
+                </div>
+            </div>
+
             {/* Analytics & History Section */}
             <div className="max-w-7xl mx-auto px-6 space-y-6 mb-10">
                 {/* Analytics Row */}
