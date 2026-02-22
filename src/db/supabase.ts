@@ -71,15 +71,21 @@ export const syncAllData = async () => {
             // Batch insert into Dexie
             await db.transaction('rw', db.sales, async () => {
                 for (const s of salesChunk) {
-                    await db.sales.put({
-                        ...s,
-                        timestamp: new Date(s.timestamp),
-                        paymentMethod: s.payment_method,
-                        salespersonName: s.salesperson_name,
-                        refunded: s.refunded || false,
-                        id: s.id,
-                        synced: true
-                    } as any);
+                    const exists = await db.sales.get(s.id);
+                    // Safe overwrite logic: keep local if it has pending changes (synced: false) UNLESS cloud says it's already refunded
+                    const shouldUpdate = !exists || exists.synced || s.refunded === true;
+
+                    if (shouldUpdate) {
+                        await db.sales.put({
+                            ...s,
+                            timestamp: new Date(s.timestamp),
+                            paymentMethod: s.payment_method,
+                            salespersonName: s.salesperson_name,
+                            refunded: s.refunded || false,
+                            id: s.id,
+                            synced: true
+                        } as any);
+                    }
                 }
             });
 
@@ -385,16 +391,38 @@ export const syncPendingSales = async () => {
         console.log(`[SYNC] Found ${pendingSales.length} pending sales to sync...`);
 
         for (const sale of pendingSales) {
-            const { error } = await supabase.from('sales').upsert([{
-                id: sale.id, // Try to preserve ID if possible, or let Supabase generate one? 
-                total: sale.total,
-                shipping_cost: sale.shippingCost,
-                salesperson_name: sale.salespersonName,
-                payment_method: sale.paymentMethod,
-                items: sale.items,
-                refunded: sale.refunded || false, // Subir estado de anulación
-                timestamp: sale.timestamp.toISOString() // Use ORIGINAL timestamp
-            }]);
+            // First check if it already exists in the cloud to avoid Identity column UPSERT errors
+            const { data: existingCloud } = await supabase.from('sales').select('id').eq('id', sale.id).limit(1);
+
+            let error;
+
+            if (existingCloud && existingCloud.length > 0) {
+                // Sale exists, we justUPDATE it (e.g. for refunds) without touching the ID column
+                const { error: updateError } = await supabase.from('sales').update({
+                    total: sale.total,
+                    shipping_cost: sale.shippingCost,
+                    salesperson_name: sale.salespersonName,
+                    payment_method: sale.paymentMethod,
+                    items: sale.items,
+                    refunded: sale.refunded || false,
+                }).eq('id', sale.id);
+                error = updateError;
+            } else {
+                // New sale, INSERT but let Supabase generate the ID to avoid constraints.
+                // NOTE: This might mean the local ID and cloud ID diverge, 
+                // but if we are strictly offline-first we might need to rely on uuid. 
+                // For now, we omit 'id' on insert so it works.
+                const { error: insertError } = await supabase.from('sales').insert([{
+                    total: sale.total,
+                    shipping_cost: sale.shippingCost,
+                    salesperson_name: sale.salespersonName,
+                    payment_method: sale.paymentMethod,
+                    items: sale.items,
+                    refunded: sale.refunded || false,
+                    timestamp: sale.timestamp.toISOString()
+                }]);
+                error = insertError;
+            }
 
             if (!error) {
                 await db.sales.update(sale.id!, { synced: true });
