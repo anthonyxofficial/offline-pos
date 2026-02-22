@@ -20,7 +20,8 @@ import {
     Calendar as CalendarIcon,
     Cloud,
     Database,
-    Plus
+    Plus,
+    AlertTriangle
 } from 'lucide-react';
 import { usePOS } from '../context/POSContext';
 import { ReportService } from '../services/ReportService';
@@ -592,8 +593,8 @@ export const BalancePage = () => {
                                     <div
                                         key={sale.id}
                                         className={`p-4 rounded-2xl flex justify-between items-center group transition-colors border ${sale.refunded
-                                                ? 'bg-red-950/20 border-red-900/30 hover:bg-red-950/40 opacity-75'
-                                                : 'bg-zinc-900 border-zinc-800/50 hover:bg-zinc-800'
+                                            ? 'bg-red-950/20 border-red-900/30 hover:bg-red-950/40 opacity-75'
+                                            : 'bg-zinc-900 border-zinc-800/50 hover:bg-zinc-800'
                                             }`}
                                     >
                                         <div className="flex items-center gap-4">
