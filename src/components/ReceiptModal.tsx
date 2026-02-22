@@ -52,8 +52,11 @@ export const ReceiptModal = ({ isOpen, onClose, sale }: ReceiptModalProps) => {
 
             alert('Venta anulada y artículos devueltos al inventario correctamente.');
             onClose(); // Close modal on success
-            // Force a reload to reflect the refunded state in the UI/Balance where needed
-            window.location.reload();
+
+            // Trigger background sync to push the update instantly
+            import('../db/supabase').then(module => {
+                if (module.syncPendingSales) module.syncPendingSales();
+            }).catch(e => console.warn('Could not trigger background sync', e));
         } catch (error) {
             console.error("Error refunding sale:", error);
             alert("Hubo un error al intentar anular la venta.");
