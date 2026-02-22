@@ -382,7 +382,7 @@ export const syncPendingSales = async () => {
         console.log(`[SYNC] Found ${pendingSales.length} pending sales to sync...`);
 
         for (const sale of pendingSales) {
-            const { error } = await supabase.from('sales').insert([{
+            const { error } = await supabase.from('sales').upsert([{
                 id: sale.id, // Try to preserve ID if possible, or let Supabase generate one? 
                 total: sale.total,
                 shipping_cost: sale.shippingCost,
