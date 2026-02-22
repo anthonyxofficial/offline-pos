@@ -136,17 +136,21 @@ export class ReportService {
             doc.text('Detalle de Ventas', 14, yPos);
             yPos += 3;
 
-            const salesBody = sales.map(s => [
-                formatDateTime(new Date(s.timestamp)),
-                `#${s.id || '-'}`,
-                s.salespersonName || 'N/A',
-                s.paymentMethod?.toUpperCase() || 'CASH',
-                this.formatCurrency(s.total)
-            ]);
+            const salesBody = sales.map(s => {
+                const isRefunded = s.refunded === true;
+                return [
+                    formatDateTime(new Date(s.timestamp)),
+                    `#${s.id || '-'}`,
+                    s.salespersonName || 'N/A',
+                    s.paymentMethod?.toUpperCase() || 'CASH',
+                    isRefunded ? 'ANULADA' : 'COMPLETADA',
+                    this.formatCurrency(s.total)
+                ]
+            });
 
             autoTable(doc, {
                 startY: yPos,
-                head: [['Fecha/Hora', 'ID', 'Vendedor', 'Método', 'Monto']],
+                head: [['Fecha/Hora', 'ID', 'Vendedor', 'Método', 'Estado', 'Monto']],
                 body: salesBody,
                 theme: 'striped',
                 headStyles: {
@@ -155,9 +159,29 @@ export class ReportService {
                     fontStyle: 'bold',
                     halign: 'center'
                 },
+                didParseCell: function (data) {
+                    if (data.section === 'body' && data.column.index === 4) {
+                        if (data.cell.raw === 'ANULADA') {
+                            data.cell.styles.textColor = [220, 38, 38]; // Red
+                            data.cell.styles.fontStyle = 'bold';
+                        } else {
+                            data.cell.styles.textColor = [34, 197, 94]; // Green
+                        }
+                    }
+                    if (data.section === 'body' && data.column.index === 5) {
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        const rowData = data.row.raw as any[];
+                        const isRefunded = rowData[4] === 'ANULADA';
+                        if (isRefunded) {
+                            data.cell.styles.textColor = [156, 163, 175]; // Gray out amount if refunded
+                            data.cell.styles.fontStyle = 'italic';
+                        }
+                    }
+                },
                 columnStyles: {
-                    0: { cellWidth: 45 },
-                    4: { halign: 'right', fontStyle: 'bold', textColor: [34, 197, 94] }
+                    0: { cellWidth: 40 },
+                    4: { halign: 'center', fontStyle: 'bold' },
+                    5: { halign: 'right', fontStyle: 'bold', textColor: [34, 197, 94] }
                 },
                 styles: { fontSize: 8, cellPadding: 3 },
                 alternateRowStyles: { fillColor: [248, 250, 252] }
@@ -165,6 +189,59 @@ export class ReportService {
 
             // @ts-ignore
             yPos = doc.lastAutoTable.finalY + 15;
+
+            // 1.5 SELLER PERFORMANCE SUMMARY
+            if (yPos > pageHeight - 60) {
+                doc.addPage();
+                yPos = 20;
+            }
+
+            doc.setFontSize(12);
+            doc.setTextColor(15, 23, 42); // Slate-900
+            doc.text('Rendimiento por Vendedor', 14, yPos);
+            yPos += 3;
+
+            const sellerMap = new Map<string, { total: number, count: number }>();
+            sales.forEach(s => {
+                if (!s.refunded) {
+                    const name = s.salespersonName || 'Desconocido';
+                    const stats = sellerMap.get(name) || { total: 0, count: 0 };
+                    stats.total += s.total;
+                    stats.count += 1;
+                    sellerMap.set(name, stats);
+                }
+            });
+
+            const sellerBody = Array.from(sellerMap.entries())
+                .sort((a, b) => b[1].total - a[1].total)
+                .map(([name, stats]) => [
+                    name,
+                    `${stats.count} facturas`,
+                    this.formatCurrency(stats.total)
+                ]);
+
+            if (sellerBody.length > 0) {
+                autoTable(doc, {
+                    startY: yPos,
+                    head: [['Vendedor', 'Ventas Exitosas', 'Ingreso Generado']],
+                    body: sellerBody,
+                    theme: 'striped',
+                    headStyles: {
+                        fillColor: [99, 102, 241], // Indigo-500
+                        textColor: 255,
+                        fontStyle: 'bold',
+                        halign: 'center'
+                    },
+                    columnStyles: {
+                        1: { halign: 'center' },
+                        2: { halign: 'right', fontStyle: 'bold', textColor: [99, 102, 241] }
+                    },
+                    styles: { fontSize: 8, cellPadding: 3 },
+                    alternateRowStyles: { fillColor: [238, 242, 255] }
+                });
+                // @ts-ignore
+                yPos = doc.lastAutoTable.finalY + 15;
+            }
         }
 
         // 2. EXPENSES
@@ -240,18 +317,54 @@ export class ReportService {
         XLSX.utils.book_append_sheet(webbook, summarySheet, 'Resumen');
 
         // --- SHEET 2: SALES ---
-        const salesData = sales.map(s => ({
-            ID: s.id,
-            Fecha: formatDate(new Date(s.timestamp)),
-            Hora: formatTime(new Date(s.timestamp)),
-            Vendedor: s.salespersonName,
-            Metodo: s.paymentMethod,
-            Envio: s.shippingCost || 0,
-            Total: s.total,
-            Items: s.items.length
-        }));
+        const salesData = sales.map(s => {
+            const isRefunded = s.refunded === true;
+            return {
+                ID: s.id,
+                Fecha: formatDate(new Date(s.timestamp)),
+                Hora: formatTime(new Date(s.timestamp)),
+                Vendedor: s.salespersonName,
+                Metodo: s.paymentMethod,
+                Estado: isRefunded ? 'ANULADA' : 'COMPLETADA',
+                Envio: s.shippingCost || 0,
+                Total: s.total,
+                Items: s.items.length
+            };
+        });
         const salesSheet = XLSX.utils.json_to_sheet(salesData);
         XLSX.utils.book_append_sheet(webbook, salesSheet, 'Ventas');
+
+        // --- SHEET 3: SOLD ITEMS BREAKDOWN ---
+        const itemMap = new Map<string, { product: string, size: string, qty: number, revenue: number }>();
+        sales.forEach(s => {
+            if (!s.refunded) {
+                s.items.forEach(item => {
+                    const key = `${item.id}-${item.size}`;
+                    const existing = itemMap.get(key) || {
+                        product: item.name,
+                        size: String(item.size),
+                        qty: 0,
+                        revenue: 0
+                    };
+                    existing.qty += item.quantity;
+                    // Compute revenue based on exact price sold (handling potential discounts)
+                    const itemTotal = (item.price * item.quantity) - (item.discount || 0);
+                    existing.revenue += itemTotal;
+                    itemMap.set(key, existing);
+                });
+            }
+        });
+
+        const sortedItems = Array.from(itemMap.values()).sort((a, b) => b.qty - a.qty);
+        const soldItemsData = sortedItems.map(item => ({
+            Producto: item.product,
+            Talla: item.size,
+            'Cantidad Vendida': item.qty,
+            'Ingreso Total (L)': item.revenue
+        }));
+
+        const soldItemsSheet = XLSX.utils.json_to_sheet(soldItemsData);
+        XLSX.utils.book_append_sheet(webbook, soldItemsSheet, 'Artículos Vendidos');
 
         // --- SHEET 3: EXPENSES ---
         const expensesData = expenses.map(e => ({
