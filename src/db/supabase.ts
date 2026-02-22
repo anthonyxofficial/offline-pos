@@ -149,10 +149,13 @@ export const syncRecentSales = async () => {
                     // For simplicity and robustness, we upsert.
                     // But we must preserve 'synced' status if we are the ones who sent it?
                     // Actually, if it comes from cloud, it IS synced.
-                    if (!exists || !exists.synced || s.refunded) {
-                        // Logic: if local exists and is !synced, it's a pending change?
-                        // Conflict resolution: Cloud wins for simple POS? 
-                        // If we are polling, we assume cloud is truth.
+                    // If local doesn't exist, always save.
+                    // If local exists but IS synced, we can overwrite if cloud has changes (like refunded: true).
+                    // If local exists but is NOT synced, DO NOT overwrite with cloud data UNLESS the cloud data is already refunded 
+                    // (because if local is unsynced and cloud is not refunded, local has pending changes that shouldn't be erased).
+                    const shouldUpdate = !exists || (exists.synced) || (s.refunded === true);
+
+                    if (shouldUpdate) {
                         await db.sales.put({
                             ...s,
                             timestamp: new Date(s.timestamp),
