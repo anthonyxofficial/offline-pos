@@ -28,6 +28,8 @@ import { ReportService } from '../services/ReportService';
 import { formatTime } from '../utils/dateUtils';
 import { AddExpenseModal } from '../components/AddExpenseModal';
 import { PDFPreviewModal } from '../components/PDFPreviewModal';
+import { ReceiptModal } from '../components/ReceiptModal';
+import type { Sale } from '../db/db';
 
 export const BalancePage = () => {
     const { currentUser } = usePOS();
@@ -44,6 +46,7 @@ export const BalancePage = () => {
     const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
     const [previewPdfUrl, setPreviewPdfUrl] = useState<string | null>(null);
     const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+    const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
 
     useEffect(() => {
         db.sales.count().then(setLocalCount);
@@ -592,7 +595,8 @@ export const BalancePage = () => {
                                 sales?.map(sale => (
                                     <div
                                         key={sale.id}
-                                        className={`p-4 rounded-2xl flex justify-between items-center group transition-colors border ${sale.refunded
+                                        onClick={() => setSelectedSale(sale)}
+                                        className={`p-4 rounded-2xl flex justify-between items-center group cursor-pointer transition-colors border ${sale.refunded
                                             ? 'bg-red-950/20 border-red-900/30 hover:bg-red-950/40 opacity-75'
                                             : 'bg-zinc-900 border-zinc-800/50 hover:bg-zinc-800'
                                             }`}
@@ -1137,6 +1141,12 @@ export const BalancePage = () => {
                 </div>
             </div>
             {/* Modals */}
+            <ReceiptModal
+                isOpen={!!selectedSale}
+                onClose={() => setSelectedSale(null)}
+                sale={selectedSale}
+            />
+
             {isExpenseModalOpen && (
                 <AddExpenseModal isOpen={true} onClose={() => setIsExpenseModalOpen(false)} />
             )}
