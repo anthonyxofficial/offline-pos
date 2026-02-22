@@ -35,6 +35,7 @@ export interface Sale {
     paymentMethod?: 'cash' | 'card' | 'qr';
     shippingCost?: number;
     synced?: boolean;
+    refunded?: boolean; // Indicates if this sale was refunded/voided
     location?: {
         lat: number;
         lng: number;

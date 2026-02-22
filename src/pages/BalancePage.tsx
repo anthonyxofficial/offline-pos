@@ -233,7 +233,7 @@ export const BalancePage = () => {
         }).sort((a, b) => b.id! - a.id!);
     }, [startDate, endDate]);
 
-    const totalSales = sales?.reduce((sum, sale) => sum + sale.total, 0) || 0;
+    const totalSales = sales?.reduce((sum, sale) => sum + (sale.refunded ? 0 : sale.total), 0) || 0;
     const totalExpenses = expenses?.reduce((sum, expense) => sum + expense.amount, 0) || 0;
     const netProfit = totalSales - totalExpenses;
 
@@ -318,10 +318,12 @@ export const BalancePage = () => {
         const productMap = new Map<string, number>();
         if (sales) {
             sales.forEach(sale => {
-                sale.items.forEach(item => {
-                    const current = productMap.get(item.name) || 0;
-                    productMap.set(item.name, current + item.quantity);
-                });
+                if (!sale.refunded) {
+                    sale.items.forEach(item => {
+                        const current = productMap.get(item.name) || 0;
+                        productMap.set(item.name, current + item.quantity);
+                    });
+                }
             });
         }
         return Array.from(productMap.entries())
@@ -486,6 +488,7 @@ export const BalancePage = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {Array.from(
                         (sales || []).reduce((acc, sale) => {
+                            if (sale.refunded) return acc; // Ignore refunded sales for performance metrics
                             const id = sale.salespersonId;
                             if (!acc.has(id)) {
                                 acc.set(id, { name: sale.salespersonName || 'Desconocido', total: 0, count: 0 });
@@ -586,23 +589,33 @@ export const BalancePage = () => {
                                 <div className="h-full flex items-center justify-center text-zinc-600 text-sm italic">No hay ventas registradas</div>
                             ) : (
                                 sales?.map(sale => (
-                                    <div key={sale.id} className="bg-zinc-900 border border-zinc-800/50 p-4 rounded-2xl flex justify-between items-center group hover:bg-zinc-800 transition-colors">
+                                    <div
+                                        key={sale.id}
+                                        className={`p-4 rounded-2xl flex justify-between items-center group transition-colors border ${sale.refunded
+                                                ? 'bg-red-950/20 border-red-900/30 hover:bg-red-950/40 opacity-75'
+                                                : 'bg-zinc-900 border-zinc-800/50 hover:bg-zinc-800'
+                                            }`}
+                                    >
                                         <div className="flex items-center gap-4">
-                                            <div className="w-10 h-10 bg-zinc-950 rounded-xl flex items-center justify-center border border-zinc-800 group-hover:border-zinc-700 transition-colors">
-                                                {sale.paymentMethod === 'cash' ? <Banknote size={20} className="text-green-500" /> :
-                                                    sale.paymentMethod === 'card' ? <CreditCard size={20} className="text-blue-400" /> :
-                                                        <QrCode size={20} className="text-purple-400" />}
+                                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center border transition-colors ${sale.refunded ? 'bg-red-500/10 border-red-500/20 text-red-400' : 'bg-zinc-950 border-zinc-800 group-hover:border-zinc-700'
+                                                }`}>
+                                                {sale.refunded ? <AlertTriangle size={20} /> :
+                                                    sale.paymentMethod === 'cash' ? <Banknote size={20} className="text-green-500" /> :
+                                                        sale.paymentMethod === 'card' ? <CreditCard size={20} className="text-blue-400" /> :
+                                                            <QrCode size={20} className="text-purple-400" />}
                                             </div>
                                             <div>
                                                 <div className="flex items-center gap-2">
-                                                    <p className="font-bold text-white text-sm">Venta No. {sale.id}</p>
-                                                    <span className="text-[10px] font-black uppercase text-zinc-600 tracking-tighter">
-                                                        {sale.paymentMethod}
+                                                    <p className={`font-bold text-sm ${sale.refunded ? 'text-red-400 line-through decoration-red-900/50' : 'text-white'}`}>
+                                                        Venta No. {sale.id}
+                                                    </p>
+                                                    <span className={`text-[10px] font-black uppercase tracking-tighter ${sale.refunded ? 'text-red-500/50' : 'text-zinc-600'}`}>
+                                                        {sale.refunded ? 'ANULADA' : sale.paymentMethod}
                                                     </span>
                                                 </div>
-                                                <p className="text-[10px] text-zinc-500 font-medium flex items-center gap-2">
+                                                <p className={`text-[10px] font-medium flex items-center gap-2 ${sale.refunded ? 'text-red-900/60' : 'text-zinc-500'}`}>
                                                     <span>{sale.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • <span className="italic">Por {sale.salespersonName}</span></span>
-                                                    {sale.location && (
+                                                    {sale.location && !sale.refunded && (
                                                         <a
                                                             href={`https://www.google.com/maps?q=${sale.location.lat},${sale.location.lng}`}
                                                             target="_blank"
@@ -619,7 +632,9 @@ export const BalancePage = () => {
                                             </div>
                                         </div>
                                         <div className="text-right">
-                                            <p className="text-base font-black text-white">L {sale.total.toFixed(2)}</p>
+                                            <p className={`text-base font-black ${sale.refunded ? 'text-red-500/50 line-through' : 'text-white'}`}>
+                                                L {sale.total.toFixed(2)}
+                                            </p>
                                         </div>
                                     </div>
                                 ))

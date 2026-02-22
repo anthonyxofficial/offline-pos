@@ -1,6 +1,10 @@
-import { X, Printer, CheckCircle } from 'lucide-react';
+import { useState } from 'react';
+import { X, Printer, CheckCircle, AlertTriangle } from 'lucide-react';
 import type { Sale } from '../db/db';
 import { formatDateTime } from '../utils/dateUtils';
+import { usePOS } from '../context/POSContext';
+import { db } from '../db/db';
+import { InventoryService } from '../services/InventoryService';
 
 interface ReceiptModalProps {
     isOpen: boolean;
@@ -9,10 +13,53 @@ interface ReceiptModalProps {
 }
 
 export const ReceiptModal = ({ isOpen, onClose, sale }: ReceiptModalProps) => {
+    const { isAdmin, currentUser } = usePOS();
+    const [isRefunding, setIsRefunding] = useState(false);
+
     if (!isOpen || !sale) return null;
 
     const handlePrint = () => {
         window.print();
+    };
+
+    const handleRefund = async () => {
+        if (!isAdmin) return;
+        if (!confirm('¿Estás seguro de anular esta venta? Esta acción regresará el inventario de los artículos y enviará el dinero de vuelta. No se puede deshacer.')) return;
+
+        setIsRefunding(true);
+        try {
+            // 1. Mark sale as refunded
+            await db.sales.update(sale.id!, {
+                refunded: true,
+                synced: false // Force sync later
+            });
+
+            // 2. Return inventory for each item
+            for (const item of sale.items) {
+                if (item.id) {
+                    await InventoryService.adjustStock(
+                        item.id,
+                        item.quantity, // Add quantity back
+                        'return',
+                        currentUser!,
+                        `Devolución de Venta #${sale.id}`
+                    );
+                }
+            }
+
+            // 3. Optional: Create an automatic expense/negative entry? 
+            // In BalancePage, we can just subtract refunded sales from the Total Sales instead so we don't double track it.
+
+            alert('Venta anulada y artículos devueltos al inventario correctamente.');
+            onClose(); // Close modal on success
+            // Force a reload to reflect the refunded state in the UI/Balance where needed
+            window.location.reload();
+        } catch (error) {
+            console.error("Error refunding sale:", error);
+            alert("Hubo un error al intentar anular la venta.");
+        } finally {
+            setIsRefunding(false);
+        }
     };
 
     return (
@@ -28,7 +75,14 @@ export const ReceiptModal = ({ isOpen, onClose, sale }: ReceiptModalProps) => {
                 </div>
 
                 {/* Receipt Content */}
-                <div className="p-6 text-black font-mono text-sm leading-relaxed" id="receipt-content">
+                <div className="relative p-6 text-black font-mono text-sm leading-relaxed" id="receipt-content">
+                    {sale.refunded && (
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+                            <span className="text-red-500/20 font-black text-6xl rotate-[-30deg] uppercase border-4 border-red-500/20 px-6 py-2 rounded-xl">
+                                Anulado
+                            </span>
+                        </div>
+                    )}
                     <div className="text-center mb-6">
                         <div className="flex justify-center mb-2 text-green-600">
                             <CheckCircle size={48} />
@@ -84,7 +138,19 @@ export const ReceiptModal = ({ isOpen, onClose, sale }: ReceiptModalProps) => {
                 </div>
 
                 {/* Footer Actions */}
-                <div className="p-4 bg-gray-50 border-t border-gray-100">
+                <div className="p-4 bg-gray-50 border-t border-gray-100 space-y-2">
+                    {isAdmin && (
+                        <button
+                            onClick={handleRefund}
+                            disabled={isRefunding || sale.refunded}
+                            className={`w-full py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all ${sale.refunded
+                                ? 'bg-red-50 text-red-400 cursor-not-allowed border border-red-100'
+                                : 'bg-red-500 hover:bg-red-600 text-white shadow-lg shadow-red-500/20'}`}
+                        >
+                            <AlertTriangle size={20} />
+                            <span>{sale.refunded ? 'Venta Anulada' : isRefunding ? 'Anulando y Devolviendo Inventario...' : 'Anular Venta y Devolver Inventario'}</span>
+                        </button>
+                    )}
                     <button
                         onClick={handlePrint}
                         className="w-full py-3 bg-black text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-gray-800 transition-colors shadow-lg"
