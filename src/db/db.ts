@@ -114,6 +114,11 @@ export class POSDatabase extends Dexie {
         this.version(6).stores({
             products: '++id, name, synced'
         });
+
+        // Version 7: Add refunded property to sales
+        this.version(7).stores({
+            sales: '++id, timestamp, salespersonId, synced, refunded'
+        });
     }
 }
 

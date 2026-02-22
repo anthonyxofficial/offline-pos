@@ -76,6 +76,7 @@ export const syncAllData = async () => {
                         timestamp: new Date(s.timestamp),
                         paymentMethod: s.payment_method,
                         salespersonName: s.salesperson_name,
+                        refunded: s.refunded || false,
                         id: s.id,
                         synced: true
                     } as any);
@@ -159,6 +160,7 @@ export const syncRecentSales = async () => {
                             timestamp: new Date(s.timestamp),
                             paymentMethod: s.payment_method,
                             salespersonName: s.salesperson_name,
+                            refunded: s.refunded || false,
                             id: s.id,
                             synced: true // It came from cloud, so it is synced
                         } as any);
@@ -188,6 +190,7 @@ export const initSupabase = async () => {
                         timestamp: new Date(newSale.timestamp),
                         paymentMethod: newSale.payment_method,
                         salespersonName: newSale.salesperson_name,
+                        refunded: newSale.refunded || false,
                         id: newSale.id as number,
                         synced: true
                     } as any);
@@ -382,16 +385,12 @@ export const syncPendingSales = async () => {
         for (const sale of pendingSales) {
             const { error } = await supabase.from('sales').insert([{
                 id: sale.id, // Try to preserve ID if possible, or let Supabase generate one? 
-                // If we send ID, we might conflict if Supabase uses auto-increment.
-                // Better to NOT send ID and let Supabase generate it, OR use UUIDs.
-                // However, if we don't send ID, we can't easily link back.
-                // Current POSPage sends: total, shipping_cost, salesperson_name, payment_method, items, timestamp
-                // It DOES NOT send ID in the original code. 
                 total: sale.total,
                 shipping_cost: sale.shippingCost,
                 salesperson_name: sale.salespersonName,
                 payment_method: sale.paymentMethod,
                 items: sale.items,
+                refunded: sale.refunded || false, // Subir estado de anulación
                 timestamp: sale.timestamp.toISOString() // Use ORIGINAL timestamp
             }]);
 
