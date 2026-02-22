@@ -58,7 +58,7 @@ export class InventoryService {
         });
 
         // 4. Fire-and-forget Cloud Sync (After local commit)
-        if (supabase) {
+        if (supabase && typeof supabase.from === 'function') {
             try {
                 // Fetch fresh product data to act as source of truth? No, use calculated values.
                 // But we need the ID.
@@ -66,7 +66,7 @@ export class InventoryService {
                 if (updatedProduct) {
                     supabase.from('products').upsert({ ...updatedProduct }).then(({ error }: any) => {
                         if (error) console.error("Cloud sync error:", error);
-                    });
+                    }).catch((e: any) => console.warn('Supabase upsert failed silently', e));
                 }
             } catch (err) {
                 console.warn('Background sync failed', err);

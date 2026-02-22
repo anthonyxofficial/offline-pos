@@ -149,12 +149,10 @@ export const syncRecentSales = async () => {
                     // For simplicity and robustness, we upsert.
                     // But we must preserve 'synced' status if we are the ones who sent it?
                     // Actually, if it comes from cloud, it IS synced.
-                    if (!exists || !exists.synced) {
+                    if (!exists || !exists.synced || s.refunded) {
                         // Logic: if local exists and is !synced, it's a pending change?
                         // Conflict resolution: Cloud wins for simple POS? 
                         // If we are polling, we assume cloud is truth.
-                        // But if we have a pending local sale with same ID? (Unlikely with auto-increment unless matched).
-                        // Let's just upsert standard fields.
                         await db.sales.put({
                             ...s,
                             timestamp: new Date(s.timestamp),
@@ -180,11 +178,10 @@ export const initSupabase = async () => {
 
         // Setup Realtime Subscriptions for Sales
         supabase.channel('public:sales')
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'sales' }, async (payload: any) => {
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'sales' }, async (payload: any) => {
                 const newSale = payload.new;
-                // Check if already exists in Dexie to avoid duplicates
-                const exists = await db.sales.get(newSale.id as number);
-                if (!exists) {
+
+                if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
                     await db.sales.put({
                         ...newSale,
                         timestamp: new Date(newSale.timestamp),
@@ -194,6 +191,8 @@ export const initSupabase = async () => {
                         id: newSale.id as number,
                         synced: true
                     } as any);
+                } else if (payload.eventType === 'DELETE') {
+                    await db.sales.delete(payload.old.id);
                 }
             })
             .subscribe();
