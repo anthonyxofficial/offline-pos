@@ -4,8 +4,8 @@ import { X, CheckCircle, Smartphone, CreditCard, Banknote, Calendar } from 'luci
 interface PaymentModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onConfirm: (method: string, shippingCost: number) => void;
-    onConfirmLayaway: (customerName: string, customerContact: string, initialPayment: number, method: string, shippingCost: number) => void;
+    onConfirm: (method: string, shippingCost: number) => Promise<void>;
+    onConfirmLayaway: (customerName: string, customerContact: string, initialPayment: number, method: string, shippingCost: number) => Promise<void>;
     total: number;
 }
 
@@ -14,6 +14,7 @@ export const PaymentModal = ({ isOpen, onClose, onConfirm, onConfirmLayaway, tot
     const [amountPaid, setAmountPaid] = useState('');
     const [shippingCost, setShippingCost] = useState('');
     const [change, setChange] = useState(0);
+    const [isProcessing, setIsProcessing] = useState(false);
 
     // Layaway State
     const [isLayaway, setIsLayaway] = useState(false);
@@ -26,6 +27,7 @@ export const PaymentModal = ({ isOpen, onClose, onConfirm, onConfirmLayaway, tot
             setShippingCost('');
             setChange(0);
             setMethod('cash');
+            setIsProcessing(false);
             // Keep layaway state reset? Yes.
             setIsLayaway(false);
             setCustomerName('');
@@ -206,23 +208,35 @@ export const PaymentModal = ({ isOpen, onClose, onConfirm, onConfirmLayaway, tot
                 {/* Footer Fixed Button */}
                 <div className="p-5 border-t border-zinc-800 bg-zinc-900/90 backdrop-blur shrink-0">
                     <button
-                        disabled={!canPay}
-                        onClick={() => {
-                            if (isLayaway) {
-                                onConfirmLayaway(customerName, customerContact, paidAmount, method, shipping);
-                            } else {
-                                onConfirm(method, shipping);
+                        disabled={!canPay || isProcessing}
+                        onClick={async () => {
+                            if (isProcessing) return;
+                            setIsProcessing(true);
+                            try {
+                                if (isLayaway) {
+                                    await onConfirmLayaway(customerName, customerContact, paidAmount, method, shipping);
+                                } else {
+                                    await onConfirm(method, shipping);
+                                }
+                            } finally {
+                                setIsProcessing(false);
                             }
                         }}
                         className={`
                             w-full py-4 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-xl
-                            ${canPay
+                            ${(canPay && !isProcessing)
                                 ? (isLayaway ? 'bg-indigo-600 text-white hover:bg-indigo-500 shadow-indigo-500/20' : 'bg-white text-black hover:bg-zinc-200 shadow-white/10') + ' active:scale-95'
                                 : 'bg-zinc-800 text-zinc-600 cursor-not-allowed'}
                         `}
                     >
-                        {isLayaway ? <Calendar size={20} /> : <CheckCircle size={20} />}
-                        <span className="tracking-wide">{isLayaway ? 'CONFIRMAR APARTADO' : 'CONFIRMAR VENTA'}</span>
+                        {isProcessing ? (
+                            <div className="w-5 h-5 border-2 border-zinc-500 border-t-white rounded-full animate-spin" />
+                        ) : (
+                            isLayaway ? <Calendar size={20} /> : <CheckCircle size={20} />
+                        )}
+                        <span className="tracking-wide">
+                            {isProcessing ? 'PROCESANDO...' : (isLayaway ? 'CONFIRMAR APARTADO' : 'CONFIRMAR VENTA')}
+                        </span>
                     </button>
                 </div>
             </div>
