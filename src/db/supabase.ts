@@ -413,6 +413,7 @@ export const syncPendingSales = async () => {
                 // but if we are strictly offline-first we might need to rely on uuid. 
                 // For now, we omit 'id' on insert so it works.
                 const { error: insertError } = await supabase.from('sales').insert([{
+                    id: sale.id,
                     total: sale.total,
                     shipping_cost: sale.shippingCost,
                     salesperson_name: sale.salespersonName,
@@ -508,7 +509,7 @@ export const forcePushAllData = async () => {
                 // Insert WITHOUT ID (Let Supabase generate it)
                 const { error: insertError } = await supabase.from('sales').insert(
                     salesToPush.map(s => ({
-                        // id: s.id, // OMIT ID
+                        id: s.id,
                         total: s.total,
                         // shipping_cost: s.shippingCost, // OMIT due to schema error
                         salesperson_name: s.salespersonName,
@@ -544,7 +545,7 @@ export const forcePushAllData = async () => {
                 console.log(`[FORCE PUSH] Insertando ${productsToPush.length} productos nuevos...`);
                 const { error: prodError } = await supabase.from('products').insert(
                     productsToPush.map(p => ({
-                        // id: p.id, // OMIT ID
+                        id: p.id,
                         name: p.name,
                         price: p.price,
                         image: p.image,
