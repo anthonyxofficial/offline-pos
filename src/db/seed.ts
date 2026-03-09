@@ -22,8 +22,12 @@ export async function seedDatabase() {
         await db.users.clear();
         await db.users.bulkAdd([
             { name: 'Anthony', pin: '2234', role: 'admin' },
-            { name: 'John', pin: '1234', role: 'sales' },
-            { name: 'Carlos', pin: '5504', role: 'sales' },
+            { name: 'Alejandra', pin: '2211', role: 'admin' },
+            { name: 'David', pin: '4499', role: 'admin' },
+            { name: 'Katherine', pin: '1234', role: 'sales' },
+            { name: 'Dennis', pin: '5504', role: 'sales' },
+            { name: 'Fernando', pin: '3344', role: 'sales' },
+            { name: 'Douglas', pin: '6677', role: 'sales' },
         ]);
     }
 }
