@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+﻿import { useState, useEffect, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/db';
 import { syncAllData, forcePushAllData, syncNow, supabase } from '../db/supabase';
@@ -236,6 +236,103 @@ export const BalancePage = () => {
             return expenseDate >= startDate && expenseDate <= endDate;
         }).sort((a, b) => b.id! - a.id!);
     }, [startDate, endDate]);
+
+    // Enhanced Seller Performance Analytics - Depend on explicit raw table observations
+    const allSalesForPerformance = useLiveQuery(() => db.sales.toArray(), []);
+    const allUsersForPerformance = useLiveQuery(() => db.users.toArray(), []);
+
+    const sellerPerformance = useMemo(() => {
+        if (!allSalesForPerformance || !allUsersForPerformance) return [];
+
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth();
+        const currentDate = now.getDate();
+
+        const startOfThisMonth = new Date(currentYear, currentMonth, 1);
+        const startOfToday = new Date(currentYear, currentMonth, currentDate);
+
+        const dayOfWeek = now.getDay();
+        const diff = currentDate - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+        const startOfThisWeek = new Date(currentYear, currentMonth, diff);
+        startOfThisWeek.setHours(0, 0, 0, 0);
+
+        const isFirstFortnight = currentDate <= 15;
+        const startOfThisFortnight = isFirstFortnight
+            ? new Date(currentYear, currentMonth, 1)
+            : new Date(currentYear, currentMonth, 16);
+
+        // We only need sales from this month for the metrics (Day, Week, Fortnight, Month) to be accurate
+        const validSales = allSalesForPerformance.filter(sale => !sale.refunded && new Date(sale.timestamp) >= startOfThisMonth);
+
+        // We want to group everything by NAME to prevent duplicates if the local DB generated multiple IDs for the same person.
+        const map = new Map<string, { name: string; day: number; week: number; fortnight: number; month: number }>();
+
+        validSales.forEach(sale => {
+            const saleDate = new Date(sale.timestamp);
+            const rawName = sale.salespersonName || 'Desconocido';
+            const unifiedName = rawName.trim().toLowerCase();
+
+            if (!map.has(unifiedName)) {
+                map.set(unifiedName, { name: rawName, day: 0, week: 0, fortnight: 0, month: 0 });
+            }
+            const stats = map.get(unifiedName)!;
+
+            // Month
+            stats.month += 1;
+
+            // Fortnight
+            if (saleDate >= startOfThisFortnight) {
+                stats.fortnight += 1;
+            }
+
+            // Week
+            if (saleDate >= startOfThisWeek) {
+                stats.week += 1;
+            }
+
+            // Day (Today)
+            if (saleDate >= startOfToday) {
+                stats.day += 1;
+            }
+        });
+
+        // We want to show all 'sales' role users, PLUS anyone who made a sale
+        const usersToDisplay = new Map<string, { name: string }>();
+
+        allUsersForPerformance.forEach(u => {
+            if (u.role === 'sales' && u.name) {
+                usersToDisplay.set(u.name.trim().toLowerCase(), { name: u.name });
+            }
+        });
+
+        // Ensure users who actually made sales are included (e.g., admins testing sales)
+        map.forEach((stats, unifiedName) => {
+            if (!usersToDisplay.has(unifiedName)) {
+                usersToDisplay.set(unifiedName, { name: stats.name });
+            }
+        });
+
+        return Array.from(usersToDisplay.values()).map(seller => {
+            const unifiedName = seller.name.trim().toLowerCase();
+            const stats = map.get(unifiedName) || { name: seller.name, day: 0, week: 0, fortnight: 0, month: 0 };
+            return {
+                id: unifiedName, // using unified name as a conceptual ID for React keys
+                name: stats.name || seller.name,
+                day: stats.day,
+                week: stats.week,
+                fortnight: stats.fortnight,
+                month: stats.month,
+                // Total generated money for the month
+                totalMoneyMonth: allSalesForPerformance
+                    .filter(s => {
+                        const sName = (s.salespersonName || 'Desconocido').trim().toLowerCase();
+                        return !s.refunded && sName === unifiedName && new Date(s.timestamp) >= startOfThisMonth;
+                    })
+                    .reduce((sum, s) => sum + s.total, 0)
+            };
+        }).sort((a, b) => b.month - a.month);
+    }, [allSalesForPerformance, allUsersForPerformance]);
 
     const totalSales = sales?.reduce((sum, sale) => sum + (sale.refunded ? 0 : sale.total), 0) || 0;
     const totalExpenses = expenses?.reduce((sum, expense) => sum + expense.amount, 0) || 0;
@@ -489,41 +586,69 @@ export const BalancePage = () => {
                 <h3 className="font-bold text-zinc-400 uppercase text-xs tracking-widest mb-4 flex items-center gap-2">
                     <UserPlus size={16} className="text-indigo-400" /> Rendimiento por Vendedor
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {Array.from(
-                        (sales || []).reduce((acc, sale) => {
-                            if (sale.refunded) return acc; // Ignore refunded sales for performance metrics
-                            const id = sale.salespersonId;
-                            if (!acc.has(id)) {
-                                acc.set(id, { name: sale.salespersonName || 'Desconocido', total: 0, count: 0 });
-                            }
-                            const stats = acc.get(id)!;
-                            stats.total += sale.total;
-                            stats.count += 1;
-                            return acc;
-                        }, new Map<number, { name: string; total: number; count: number }>())
-                            .values()
-                    )
-                        .sort((a, b) => b.total - a.total)
-                        .map((seller, i) => (
-                            <div key={i} className="bg-zinc-900/40 p-5 rounded-3xl border border-zinc-800 flex items-center justify-between group hover:border-zinc-600 transition-all">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center font-black overflow-hidden border border-indigo-500/20">
-                                        {seller.name.substring(0, 2).toUpperCase()}
-                                    </div>
-                                    <div>
-                                        <p className="font-bold text-white text-sm">{seller.name}</p>
-                                        <p className="text-xs text-zinc-500 font-medium">{seller.count} {seller.count === 1 ? 'venta' : 'ventas'}</p>
-                                    </div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    {sellerPerformance?.map((seller, i) => (
+                        <div key={i} className="bg-zinc-900/40 p-5 rounded-3xl border border-zinc-800 flex flex-col group hover:border-zinc-600 transition-all">
+                            <div className="flex items-center gap-4 mb-4 border-b border-zinc-800/50 pb-4">
+                                <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center font-black overflow-hidden border border-indigo-500/20">
+                                    {seller.name.substring(0, 2).toUpperCase()}
                                 </div>
-                                <div className="text-right">
-                                    <p className="text-lg font-black text-emerald-400 border-b border-emerald-900/50 pb-0.5 mb-0.5">L {seller.total.toLocaleString('es-HN', { minimumFractionDigits: 2 })}</p>
+                                <div className="flex-1 flex justify-between items-center">
+                                    <div>
+                                        <p className="font-bold text-white text-lg leading-tight">{seller.name}</p>
+                                        <p className="text-xs text-zinc-500 font-medium tracking-wide">{seller.month} {seller.month === 1 ? 'venta' : 'ventas'} este mes</p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-emerald-400 font-black text-xl tracking-tight">
+                                            L {seller.totalMoneyMonth.toLocaleString('es-HN', { minimumFractionDigits: 2 })}
+                                        </p>
+                                        <div className="w-full h-[1px] bg-emerald-500/20 mt-1 rounded-full"></div>
+                                    </div>
                                 </div>
                             </div>
-                        ))}
-                    {(sales || []).length === 0 && (
+
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                {/* Today */}
+                                <div className="bg-zinc-950/50 rounded-xl p-3 border border-zinc-800 flex flex-col items-center justify-center">
+                                    <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold mb-1">Hoy</p>
+                                    <p className={`text-xl font-black ${seller.day > 0 ? 'text-emerald-400' : 'text-zinc-600'}`}>
+                                        {seller.day}
+                                    </p>
+                                    <p className="text-[9px] text-zinc-600 uppercase tracking-widest mt-1">ventas</p>
+                                </div>
+
+                                {/* Week */}
+                                <div className="bg-zinc-950/50 rounded-xl p-3 border border-zinc-800 flex flex-col items-center justify-center">
+                                    <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold mb-1">Semana</p>
+                                    <p className={`text-xl font-black ${seller.week > 0 ? 'text-emerald-400' : 'text-zinc-600'}`}>
+                                        {seller.week}
+                                    </p>
+                                    <p className="text-[9px] text-zinc-600 uppercase tracking-widest mt-1">ventas</p>
+                                </div>
+
+                                {/* Fortnight */}
+                                <div className="bg-zinc-950/50 rounded-xl p-3 border border-zinc-800 flex flex-col items-center justify-center">
+                                    <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold mb-1">Quincena</p>
+                                    <p className={`text-xl font-black ${seller.fortnight > 0 ? 'text-emerald-400' : 'text-zinc-600'}`}>
+                                        {seller.fortnight}
+                                    </p>
+                                    <p className="text-[9px] text-zinc-600 uppercase tracking-widest mt-1">ventas</p>
+                                </div>
+
+                                {/* Month */}
+                                <div className="bg-zinc-950/50 rounded-xl p-3 border-zinc-800 border bg-gradient-to-br from-indigo-500/5 to-purple-500/5 flex flex-col items-center justify-center">
+                                    <p className="text-[10px] text-indigo-400/80 uppercase tracking-widest font-bold mb-1">Mes</p>
+                                    <p className={`text-xl font-black ${seller.month > 0 ? 'text-indigo-400' : 'text-zinc-600'}`}>
+                                        {seller.month}
+                                    </p>
+                                    <p className="text-[9px] text-indigo-500/50 uppercase tracking-widest mt-1">ventas</p>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                    {(sellerPerformance || []).length === 0 && (
                         <div className="col-span-full bg-zinc-900/20 p-6 rounded-3xl border border-zinc-800 text-center text-zinc-600 italic text-sm">
-                            No hay datos de ventas para mostrar en este período.
+                            No hay vendedores registrados en el sistema.
                         </div>
                     )}
                 </div>
